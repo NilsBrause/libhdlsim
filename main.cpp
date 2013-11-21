@@ -1,5 +1,7 @@
 #include <iostream>
+
 #include <hdl.hpp>
+#include <std_logic.hpp>
 
 using namespace hdl;
 
@@ -7,41 +9,41 @@ int main()
 {
   // logic desription
 
-  wire<bool> clk("clk");
-  wire<bool> reset("reset");
-  wire<bool> enable("enable");
-  wire<bool> din("din");
-  wire<bool> dout("dout");
-  wire<bool> din2("din2");
-  wire<bool> dout2("dout2");
+  auto clk = wire<std_logic>::create("clk");
+  auto reset = wire<std_logic>::create("reset");
+  auto enable = wire<std_logic>::create("enable");
+  auto din = wire<std_logic>::create("din");
+  auto dout = wire<std_logic>::create("dout");
+  auto din2 = wire<std_logic>::create("din2");
+  auto dout2 = wire<std_logic>::create("dout2");
+  
+  reg<std_logic>(clk, reset, enable, din, dout, "reg1");
+  reg<std_logic>(dout, reset, enable, din2, dout2, "reg2");
 
-  reg<bool>(clk, reset, enable, din, dout, "reg1");
-  reg<bool>(dout, reset, enable, din2, dout2, "reg2");
-
-  din = not dout;
-  din2 = not dout2;
+  din << not dout;
+  din2 << not dout2;
 
   // initialize
-  clk = 0;
-  reset = 0;
-  enable = 1;
+  clk->set(0);
+  reset->set(0);
+  enable->set(1);
   base::waitfor(1);
 
   // testbench
   for(int c = 0; c < 42; c++)
     {
-      clk = not (bool)clk;
+      clk->set(not clk->get());
       
       if(base::waitfor() <= 10)
-        reset = 0;
+        reset->set(0);
       else
-        reset = 1;
+        reset->set(1);
       
       base::waitfor(1);
       
-      std::cout << "(" << clk << " | " << reset << ") "
-                << din << " " << dout << " | "
-                << din2 << " " << dout2 << std::endl;
+      std::cout << "(" << clk->get() << " | " << reset->get() << ") "
+                << din->get() << " " << dout->get() << " | "
+                << din2->get() << " " << dout2->get() << std::endl;
     }
 
   return 0;

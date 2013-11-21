@@ -1,5 +1,6 @@
 env = Environment()
 env.Append(CCFLAGS = ["-I.",
+#                      "-DDEBUG",
                       "-std=c++11",
                       "-Wall",
                       "-Werror",

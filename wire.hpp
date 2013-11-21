@@ -2,6 +2,7 @@
 #define WIRE_HPP
 
 #include <iostream>
+#include <memory>
 #include <base.hpp>
 #include <process.hpp>
 
@@ -25,9 +26,6 @@ namespace hdl
 
     virtual void update()
     {
-#ifdef DEBUG
-      std::cout << "wire " << myname << " has been updated" << std::endl;
-#endif
       prev_state = state;
       state = next_state;
     }
@@ -37,18 +35,12 @@ namespace hdl
       return state != next_state;
     }
 
-  public:
     wire(std::string name = "wire")
       : base(name)
     {
-      wires.push_back(this);
     }
 
-    ~wire()
-    {
-      wires.remove(this);
-    }
-
+  public:
     T get()
     {
       return state;
@@ -74,82 +66,42 @@ namespace hdl
       return !get() && event();
     }
 
-    operator T()
+    static std::shared_ptr<wire<T> > create(std::string name)
     {
-      return state;
-    }
-
-    wire<T>& operator=(const T& rhs)
-    {
-      set(rhs);
-      return *this;
-    }
-
-    bool operator==(const T& rhs)
-    {
-      return get() == rhs;
-    }
-
-    bool operator!=(const T& rhs)
-    {
-      return get() != rhs;
-    }
-
-    ///////////////////////////////////////////////////////////////////////////
-
-    wire<T>& operator=(wire<T>& rhs)
-    {
-      wire<T> *lhs = this;
-      new process
-        ({&rhs}, {lhs}, [=, &rhs]
-         {
-           lhs->set(rhs.get());
-         });
-      return *this;
-    }
-
-    wire<T> &operator not()
-    {
-      wire *lhs = new wire<T>();
-      wire *rhs = this;
-      new process
-        ({rhs}, {lhs}, [=]
-         {
-           lhs->set(not rhs->get());
-         });
-      return *lhs;
-    }
-
-    wire<bool> &operator==(wire<T>& rhs)
-    {
-      wire<bool> *w = new wire<bool>();
-      wire<T> *lhs = this;
-      new process
-        ({lhs, &rhs}, {w}, [=, &rhs]
-         {
-           w->set(lhs->get() == rhs.get());
-         });
-      return *w;
-    }
-
-    bool operator!=(wire<T>& rhs)
-    {
-      wire<bool> *w = new wire<bool>();
-      wire<T> *lhs = this;
-      new process
-        ({lhs, &rhs}, {w}, [=, &rhs]
-         {
-           w->set(lhs->get() != rhs.get());
-         });
-      return *w;
+      std::shared_ptr<wire<T> > w(new wire<T>(name));
+      base::wires.push_back(w);
+      return w;
     }
   };
 
   template <typename T>
-  std::ostream &operator<<(std::ostream& os, const wire<T>& rhs)
+  std::ostream &operator<<(std::ostream& os, const std::shared_ptr<wire<T> > rhs)
   {
     os << rhs.state;
     return os;
+  }
+
+  template<typename T>
+  std::shared_ptr<wire<T> > operator<<(std::shared_ptr<wire<T> > lhs, std::shared_ptr<wire<T> > rhs)
+  {
+    process::create
+      ({rhs}, {lhs}, [=]
+       {
+         lhs->set(rhs->get());
+       }, "assign");
+    return lhs;
+  }
+
+  template<typename T>
+  std::shared_ptr<wire<T> > operator not(std::shared_ptr<wire<T> > rhs)
+  {
+    auto lhs = wire<T>::create("tmp");
+    process::create
+      ({rhs}, {lhs}, [=]
+       {
+         lhs->set(not rhs->get());
+       }, "not");
+    return lhs;
   }
 }
 
