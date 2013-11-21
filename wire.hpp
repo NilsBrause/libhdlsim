@@ -21,6 +21,7 @@ namespace hdl
     T state;
     T prev_state;
     T next_state;
+    bool first;
 
     friend  std::ostream& operator<<<T>(std::ostream& os, const wire<T>& rhs);
 
@@ -32,11 +33,14 @@ namespace hdl
 
     bool changed()
     {
-      return state != next_state;
+      if(!first)
+        return state != next_state;
+      first = false;
+      return true;
     }
 
     wire(std::string name = "wire")
-      : base(name)
+      : base(name), first(true)
     {
     }
 

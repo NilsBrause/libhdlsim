@@ -1,9 +1,11 @@
 #include <iostream>
 
 #include <hdl.hpp>
-#include <std_logic.hpp>
+//#include <std_logic.hpp>
 
 using namespace hdl;
+
+#define std_logic bool
 
 int main()
 {
@@ -17,8 +19,8 @@ int main()
   auto din2 = wire<std_logic>::create("din2");
   auto dout2 = wire<std_logic>::create("dout2");
   
-  reg<std_logic>(clk, reset, enable, din, dout, "reg1");
-  reg<std_logic>(dout, reset, enable, din2, dout2, "reg2");
+  reg(clk, reset, enable, din, dout, "reg1");
+  reg(dout, reset, enable, din2, dout2, "reg2");
 
   din << not dout;
   din2 << not dout2;
