@@ -8,103 +8,88 @@
 
 namespace hdl
 {
-  template <typename T>
-  class wire;
-
-  template <typename T>
-  std::ostream& operator<<(std::ostream& os, const wire<T>& rhs);
-
-  template <typename T>
-  class wire : public base
+  namespace detail
   {
-  private:
-    T state;
-    T prev_state;
-    T next_state;
-    bool first;
-
-    friend  std::ostream& operator<<<T>(std::ostream& os, const wire<T>& rhs);
-
-    virtual void update()
+    template <typename T>
+    class wire_base : public base
     {
-      prev_state = state;
-      state = next_state;
-    }
-
-    bool changed()
-    {
-      if(!first)
-        return state != next_state;
-      first = false;
-      return true;
-    }
-
-    wire(std::string name = "wire")
-      : base(name), first(true)
-    {
-    }
-
-  public:
-    T get()
-    {
-      return state;
-    }
-
-    void set(T t)
-    {
-      next_state = t;
-    }
-
-    bool event()
-    {
-      return prev_state != state;
-    }
+    public:
+      T state;
+      T prev_state;
+      T next_state;
+      bool first;
       
-    bool rising_edge()
-    {
-      return get() && event();
-    }
+      virtual void update()
+      {
+        prev_state = state;
+        state = next_state;
+      }
+      
+      bool changed()
+      {
+        if(!first)
+          return state != next_state;
+        first = false;
+        return true;
+      }
+      
+      wire_base(std::string name, T initial)
+        : base(name), state(initial), prev_state(initial),
+          next_state(initial), first(true)
+      {
+      }
+    };
+  }
+
+  template <typename T>
+  class wire : protected base
+  {
+    std::shared_ptr<detail::wire_base<T> > w;
+    void update() {};
     
-    bool falling_edge()
+  public:
+    wire(std::string name, T initial = T())
+      : w(new detail::wire_base<T>(name, initial))
     {
-      return !get() && event();
+      base::wires.push_back(w);
     }
 
-    static std::shared_ptr<wire<T> > create(std::string name)
+    wire(T initial, std::string name = "wire")
+      : w(new detail::wire_base<T>(name, initial))
     {
-      std::shared_ptr<wire<T> > w(new wire<T>(name));
       base::wires.push_back(w);
+    }
+
+    operator T() const
+    {
+      return w->state;
+    }
+
+    void operator=(const T &t) const
+    {
+      w->next_state = t;
+    }
+
+    void operator=(const wire<T> &w2) const
+    {
+      w->next_state = (T)w2;
+    }
+
+    bool event() const
+    {
+      return w->prev_state != w->state;
+    }
+
+    operator std::shared_ptr<base>() const
+    {
       return w;
     }
   };
 
   template <typename T>
-  std::ostream &operator<<(std::ostream& os, const std::shared_ptr<wire<T> > rhs)
+  std::ostream& operator<<(std::ostream& lhs, wire<T> const& rhs)
   {
-    os << rhs.state;
-    return os;
-  }
-
-  template<typename T>
-  std::shared_ptr<wire<T> > operator<<(std::shared_ptr<wire<T> > lhs, std::shared_ptr<wire<T> > rhs)
-  {
-    process::create
-      ({rhs}, {lhs}, [=]
-       {
-         lhs->set(rhs->get());
-       }, "assign");
-    return lhs;
-  }
-
-  template<typename T>
-  std::shared_ptr<wire<T> > operator not(std::shared_ptr<wire<T> > rhs)
-  {
-    auto lhs = wire<T>::create("tmp");
-    process::create
-      ({rhs}, {lhs}, [=]
-       {
-         lhs->set(not rhs->get());
-       }, "not");
+    lhs << (T)rhs;
     return lhs;
   }
 }

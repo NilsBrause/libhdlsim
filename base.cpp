@@ -86,7 +86,7 @@ uint64_t base::waitfor(uint64_t duration)
             for(auto &p : procs2up)
               for(auto &w : p->connections)
                 if(w->changed())
-                {
+                  {
                     if(std::find(wires2up.begin(), wires2up.end(), p)
                        == wires2up.end())
                       {
@@ -99,6 +99,12 @@ uint64_t base::waitfor(uint64_t duration)
                       std::cerr << "WARNING: wire " << w->myname
                                 << " has been updated by more then one process"
                                 << " at a time" << std::endl;
+                  }
+                else
+                  {
+#ifdef DEBUG
+                    std::cerr << "Wire " << w->myname << " didn't change." << std::endl;
+#endif
                   }
           }
 #ifdef DEBUG

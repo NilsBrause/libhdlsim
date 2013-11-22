@@ -7,18 +7,17 @@
 namespace hdl
 {
   template <typename T, typename U, typename V, typename W>
-  void reg(std::shared_ptr<wire<U> > clk, std::shared_ptr<wire<V> > reset,
-           std::shared_ptr<wire<W> > enable, std::shared_ptr<wire<T> > din, std::shared_ptr<wire<T> > dout,
-           std::string name = "reg")
+  void reg(wire<U> clk, wire<V> reset, wire<W> enable,
+           wire<T> din, wire<T> dout, std::string name)
   {
-    process::create
+    process
       ({clk, reset}, {dout}, [=]
        {
-         if(!reset->get())
-           dout->set(T(0));
-         else if(clk->rising_edge())
-           if(enable->get())
-             dout->set(din->get());
+         if(reset == 0)
+           dout = 0;
+         else if(clk.event() and clk == 1)
+           if(enable == 1)
+             dout = din;
        }, name);
   }
 }
