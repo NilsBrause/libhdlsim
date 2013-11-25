@@ -5,29 +5,55 @@
 #include <memory>
 #include <string>
 #include <cstdint>
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
 namespace hdl
 {
-  class base
+  uint64_t waitfor(uint64_t duration = 0);
+
+  namespace detail
   {
-  private:
-    static uint64_t time;
+    class wire_base;
 
-  protected:
-    std::string myname;
-    virtual bool changed();
-    virtual void update() = 0;
+    class process_base
+    {
+    protected:
+      process_base(std::string name);
+      
+      friend uint64_t waitfor(uint64_t duration);
 
-    static std::list<std::shared_ptr<base> > wires;
-    static std::list<std::shared_ptr<base> > processes;
+    public:
+      std::string myname;
+      virtual void update() = 0;
+      std::list<std::shared_ptr<wire_base> > children;
+      std::list<std::shared_ptr<wire_base> > parents;
+    };
 
-    base(std::string name = "unknowen");
+    class wire_base
+    {
+    protected:
+#ifdef _OPENMP
+      omp_nest_lock_t omp_lock;
+#endif
+      wire_base(std::string name);
+      friend uint64_t waitfor(uint64_t duration);
 
-  public:
-    std::list<std::shared_ptr<base> > connections;
+    public:
+      std::string myname;
+      virtual bool changed() = 0;
+      virtual void update() = 0;
+      void lock();
+      void unlock();
+      std::list<std::shared_ptr<process_base> > children;
+      std::list<std::shared_ptr<process_base> > parents;
+    };    
 
-    static uint64_t waitfor(uint64_t duration = 0);
-  };
+    extern uint64_t cur_time;
+    extern std::list<std::shared_ptr<wire_base> > wires;
+    extern std::list<std::shared_ptr<process_base> > processes;
+  }
 }
 
 #endif

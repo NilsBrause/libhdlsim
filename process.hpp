@@ -9,26 +9,28 @@ namespace hdl
 {
   namespace detail
   {
-    class process_base : public base
+    class process_int : public process_base
     {
       std::function<void()> logic;
       void update();
       
     public:
-      process_base(std::list<std::shared_ptr<base> > outputs,
-                   std::function<void()> logic, std::string name);
+      process_int(std::string name,
+                   std::list<std::shared_ptr<detail::wire_base> > sensitivity_list,
+                   std::list<std::shared_ptr<detail::wire_base> > outputs,
+                   std::function<void()> logic);
     };
   }
 
-  class process : protected base
+  class process
   {
-    std::shared_ptr<detail::process_base> p;
-    void update() {};
+    std::shared_ptr<detail::process_int> p;
 
   public:
-    process(std::list<std::shared_ptr<base> > sensitivity_list,
-            std::list<std::shared_ptr<base> > outputs,
-            std::function<void()> logic, std::string name);
+    process(std::string name,
+            std::list<std::shared_ptr<detail::wire_base> > sensitivity_list,
+            std::list<std::shared_ptr<detail::wire_base> > outputs,
+            std::function<void()> logic);
   };
 }
 

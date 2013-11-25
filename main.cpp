@@ -15,15 +15,15 @@ int main()
   wire<int> din2("din2");
   wire<int> dout2("dout2");
 
-  reg(clk, reset, wire<int>(1), din, dout, "reg1");
-  reg(dout, reset, wire<int>(1), din2, dout2, "reg2");
+  reg("reg1", clk, reset, wire<int>(1), din, dout);
+  reg("reg2", dout, reset, wire<int>(1), din2, dout2);
   
   process
-    ({dout, dout2}, {din, din2}, [=]
+    ("notnot", {dout, dout2}, {din, din2}, [=]
        {
          din = not dout;
          din2 = not dout2;
-       }, "not");
+       });
 
   // testbench
 
@@ -31,12 +31,12 @@ int main()
     {
       clk = not clk;
       
-      if(base::waitfor() <= 10)
+      if(waitfor() <= 10)
         reset = 0;
       else
         reset = 1;
       
-      base::waitfor(1);
+      waitfor(1);
       
       std::cout << "(" << clk << " | " << reset << ") "
                 << din << " " << dout << " | "

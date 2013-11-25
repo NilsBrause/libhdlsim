@@ -11,7 +11,7 @@ namespace hdl
   namespace detail
   {
     template <typename T>
-    class wire_base : public base
+    class wire_int : public wire_base
     {
     public:
       T state;
@@ -32,32 +32,55 @@ namespace hdl
         first = false;
         return true;
       }
+
+      void set(const T &t)
+      {
+        lock();
+        next_state = t;
+        unlock();
+      }
       
-      wire_base(std::string name, T initial)
-        : base(name), state(initial), prev_state(initial),
+      T get()
+      {
+        lock();
+        T t = state;
+        unlock();
+        return t;
+      }
+
+      bool event()
+      {
+        lock();
+        bool b = prev_state != state;
+        unlock();
+        return b;
+      }
+      
+      wire_int(std::string name, T initial)
+        : wire_base(name), state(initial), prev_state(initial),
           next_state(initial), first(true)
       {
+        omp_init_nest_lock(&omp_lock);
       }
     };
   }
 
   template <typename T>
-  class wire : protected base
+  class wire
   {
-    std::shared_ptr<detail::wire_base<T> > w;
-    void update() {};
-    
+    std::shared_ptr<detail::wire_int<T> > w;
+
   public:
     wire(std::string name, T initial = T())
-      : w(new detail::wire_base<T>(name, initial))
+      : w(new detail::wire_int<T>(name, initial))
     {
-      base::wires.push_back(w);
+      detail::wires.push_back(w);
     }
 
-    wire(T initial, std::string name = "wire")
-      : w(new detail::wire_base<T>(name, initial))
+    wire(T initial = T(), std::string name = "wire")
+      : w(new detail::wire_int<T>(name, initial))
     {
-      base::wires.push_back(w);
+      detail::wires.push_back(w);
     }
 
     operator T() const
@@ -67,20 +90,20 @@ namespace hdl
 
     void operator=(const T &t) const
     {
-      w->next_state = t;
+      w->set(t);
     }
 
     void operator=(const wire<T> &w2) const
     {
-      w->next_state = (T)w2;
+      w->set((T)w2);
     }
 
     bool event() const
     {
-      return w->prev_state != w->state;
+      return w->event();
     }
 
-    operator std::shared_ptr<base>() const
+    operator std::shared_ptr<detail::wire_base>() const
     {
       return w;
     }

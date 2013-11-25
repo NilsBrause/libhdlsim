@@ -2,26 +2,24 @@
 #include <iostream>
 #include <base.hpp>
 
-using namespace hdl;
-
-uint64_t base::waitfor(uint64_t duration)
+uint64_t hdl::waitfor(uint64_t duration)
 {
-  static std::vector<std::shared_ptr<base> > wires2up;
-  static std::vector<std::shared_ptr<base> > procs2up;
+  static std::vector<std::shared_ptr<hdl::detail::wire_base> > wires2up;
+  static std::vector<std::shared_ptr<hdl::detail::process_base> > procs2up;
 
-  time += duration;
+  hdl::detail::cur_time += duration;
   if(duration > 0)
     {
 #ifdef DEBUG
       std::cerr << "Time: " << time << std::endl;
 #endif
 
-      wires2up.reserve(wires.size());
-      procs2up.reserve(processes.size());
+      wires2up.reserve(hdl::detail::wires.size());
+      procs2up.reserve(hdl::detail::processes.size());
 
       // initialze with wires that have been changed in the testbench
       wires2up.clear();
-      for(auto &w : wires)
+      for(auto &w : hdl::detail::wires)
         if(w->changed())
           wires2up.push_back(w);
 
@@ -50,7 +48,7 @@ uint64_t base::waitfor(uint64_t duration)
           {
             procs2up.clear();
             for(auto &w : wires2up)
-              for(auto &p : w->connections)
+              for(auto &p : w->children)
                 if(std::find(procs2up.begin(), procs2up.end(), p)
                    == procs2up.end())
                   {
@@ -84,10 +82,10 @@ uint64_t base::waitfor(uint64_t duration)
 #pragma omp single
           {
             for(auto &p : procs2up)
-              for(auto &w : p->connections)
+              for(auto &w : p->children)
                 if(w->changed())
                   {
-                    if(std::find(wires2up.begin(), wires2up.end(), p)
+                    if(std::find(wires2up.begin(), wires2up.end(), w)
                        == wires2up.end())
                       {
 #ifdef DEBUG
@@ -112,20 +110,36 @@ uint64_t base::waitfor(uint64_t duration)
 #endif
         }
     }
-  return time;
+  return hdl::detail::cur_time;
 }
 
-base::base(std::string name)
+hdl::detail::process_base::process_base(std::string name)
   : myname(name)
 {
 }
 
-bool base::changed()
+hdl::detail::wire_base::wire_base(std::string name)
+  : myname(name)
 {
-  return true;
+#ifdef _OPENMP
+  omp_init_nest_lock(&omp_lock);
+#endif
 }
 
-uint64_t base::time = 0;
-std::list<std::shared_ptr<base> > base::wires;
-std::list<std::shared_ptr<base> > base::processes;
+void hdl::detail::wire_base::lock()
+{
+#ifdef _OPENMP
+  omp_set_nest_lock(&omp_lock);
+#endif
+}
 
+void hdl::detail::wire_base::unlock()
+{
+#ifdef _OPENMP
+  omp_unset_nest_lock(&omp_lock);
+#endif
+}
+
+uint64_t hdl::detail::cur_time = 0;
+std::list<std::shared_ptr<hdl::detail::wire_base> > hdl::detail::wires;
+std::list<std::shared_ptr<hdl::detail::process_base> > hdl::detail::processes;
