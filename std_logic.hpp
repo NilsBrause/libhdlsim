@@ -157,7 +157,7 @@ public:
 
   std_logic operator ~() const
   {
-    retirn operator not();
+    return operator not();
   }
 
   std_logic operator &(const std_logic &rhs) const

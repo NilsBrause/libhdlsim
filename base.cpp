@@ -11,7 +11,7 @@ uint64_t hdl::waitfor(uint64_t duration)
   if(duration > 0)
     {
 #ifdef DEBUG
-      std::cerr << "Time: " << time << std::endl;
+      std::cerr << "Time: " << hdl::detail::cur_time << std::endl;
 #endif
 
       wires2up.reserve(hdl::detail::wires.size());
@@ -75,8 +75,8 @@ uint64_t hdl::waitfor(uint64_t duration)
 
 #ifdef _OPENMP
 #pragma omp single
-          wires2up.clear();
 #endif
+          wires2up.clear();
 
 #ifdef _OPENMP
 #pragma omp for schedule(dynamic)

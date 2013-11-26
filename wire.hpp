@@ -60,22 +60,24 @@ namespace hdl
       
       bool changed()
       {
-        bool chg = false;
         if(!first)
-          {
-            for(auto &i : next_state)
-              if(state != i.second)
-                {
-                  chg = true;
-                  break;
-                }
-          }
+          switch(next_state.size())
+            {
+            case 0:
+              return false;
+              break;
+            case 1:
+              return state != next_state.begin()->second;
+              break;
+            default:
+              return state != resolve(next_state, this);
+              break;
+            }
         else
           {
-            chg = true;
             first = false;
+            return true;
           }
-        return chg;
       }
 
       void set(const T &t)
