@@ -2,10 +2,10 @@ env = Environment()
 env.Append(CCFLAGS = ["-I.",
 #                      "-DDEBUG",
                       "-ggdb",
-                      "-std=c++11",
+                      "-fopenmp",
                       "-Wall",
                       "-Werror",
-                      "-fopenmp"])
+                      "-std=c++11"])
 env.Append(LINKFLAGS = ["-fopenmp"])
 env.Program(target = 'main',
             source = ["main.cpp",

@@ -93,10 +93,6 @@ uint64_t hdl::waitfor(uint64_t duration)
 #endif
                         wires2up.push_back(w);
                       }
-                    else
-                      std::cerr << "WARNING: wire " << w->myname
-                                << " has been updated by more then one process"
-                                << " at a time" << std::endl;
                   }
                 else
                   {
@@ -113,17 +109,47 @@ uint64_t hdl::waitfor(uint64_t duration)
   return hdl::detail::cur_time;
 }
 
-hdl::detail::process_base::process_base(std::string name)
+hdl::detail::base::base(std::string name)
   : myname(name)
 {
 }
 
+std::string hdl::detail::base::getname()
+{
+  return myname;
+}
+
+hdl::detail::process_base::process_base(std::string name)
+  : base(name)
+{
+}
+
 hdl::detail::wire_base::wire_base(std::string name)
-  : myname(name)
+  : base(name)
 {
 #ifdef _OPENMP
   omp_init_nest_lock(&omp_lock);
 #endif
+}
+
+void hdl::detail::process_base::add_child(std::shared_ptr<wire_base> child)
+{
+  children.push_back(child);
+}
+
+void hdl::detail::process_base::add_parent(std::shared_ptr<wire_base> parent)
+{
+  parents.push_back(parent);
+}
+
+void hdl::detail::wire_base::add_child(std::shared_ptr<process_base> child)
+{
+  children.push_back(child);
+}
+
+void hdl::detail::wire_base::add_parent(std::shared_ptr<process_base> parent)
+{
+  parents.push_back(parent);
 }
 
 void hdl::detail::wire_base::lock()
@@ -138,6 +164,20 @@ void hdl::detail::wire_base::unlock()
 #ifdef _OPENMP
   omp_unset_nest_lock(&omp_lock);
 #endif
+}
+
+void hdl::detail::wire_base::set_cur_parent(hdl::detail::process_base *parent)
+{
+  lock();
+#ifdef _OPENMP
+  unsigned int n = omp_get_thread_num();
+#else
+  unsigned int n = 0;
+#endif
+  if(cur_parent.size() < n+1)
+    cur_parent.resize(n+1);
+  cur_parent[n] = parent;
+  unlock();
 }
 
 uint64_t hdl::detail::cur_time = 0;

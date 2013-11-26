@@ -2,12 +2,31 @@
 #define WIRE_HPP
 
 #include <iostream>
+#include <map>
 #include <memory>
 #include <base.hpp>
 #include <process.hpp>
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
 namespace hdl
 {
+  // Resolve multiple assignments to a wire.
+  // Has to be reimplemented by types with high-Z support.
+  template <typename T>
+  T resolve(std::map<hdl::detail::process_base*, T> candidates,
+            hdl::detail::wire_base *w)
+  {
+    std::cerr << "WARNING: wire " << w->getname()
+              << " has been updated by the following processes: ";
+    for(auto &i : candidates)
+      std::cerr << i.first->getname() << " ";
+    std::cerr << std::endl;
+
+    return candidates.begin()->second;
+  }
+
   namespace detail
   {
     template <typename T>
@@ -16,51 +35,76 @@ namespace hdl
     public:
       T state;
       T prev_state;
-      T next_state;
+      std::map<process_base*, T> next_state;
       bool first;
       
       virtual void update()
       {
-        prev_state = state;
-        state = next_state;
+        switch(next_state.size())
+          {
+          case 0:
+            break;
+          case 1:
+            prev_state = state;
+            state = next_state.begin()->second;
+            break;
+          default:
+            prev_state = state;
+            state = resolve(next_state, this);
+            break;
+          }
       }
       
       bool changed()
       {
+        bool chg = false;
         if(!first)
-          return state != next_state;
-        first = false;
-        return true;
+          {
+            for(auto &i : next_state)
+              if(state != i.second)
+                {
+                  chg = true;
+                  break;
+                }
+          }
+        else
+          {
+            chg = true;
+            first = false;
+          }
+        return chg;
       }
 
       void set(const T &t)
       {
         lock();
-        next_state = t;
+#ifdef _OPENMP
+        unsigned int n = omp_get_thread_num();
+#else
+        unsigned int n = 0;
+#endif
+        process_base *p;
+        if(cur_parent.size() == 0) // set from top level testbench
+          p = NULL;
+        else
+          p = cur_parent.at(n);
+        next_state[p] = t;
         unlock();
       }
       
       T get()
       {
-        lock();
-        T t = state;
-        unlock();
-        return t;
+        return state;
       }
 
       bool event()
       {
-        lock();
-        bool b = prev_state != state;
-        unlock();
-        return b;
+        return prev_state != state;
       }
       
       wire_int(std::string name, T initial)
-        : wire_base(name), state(initial), prev_state(initial),
-          next_state(initial), first(true)
+        : wire_base(name), state(initial), prev_state(initial), first(true)
       {
-        omp_init_nest_lock(&omp_lock);
       }
     };
   }
@@ -71,13 +115,13 @@ namespace hdl
     std::shared_ptr<detail::wire_int<T> > w;
 
   public:
-    wire(std::string name, T initial = T())
-      : w(new detail::wire_int<T>(name, initial))
+    wire(T initial = T())
+      : w(new detail::wire_int<T>("wire", initial))
     {
       detail::wires.push_back(w);
     }
 
-    wire(T initial = T(), std::string name = "wire")
+    wire(std::string name, T initial)
       : w(new detail::wire_int<T>(name, initial))
     {
       detail::wires.push_back(w);

@@ -45,7 +45,7 @@ namespace hdl
   void counter(std::string name, wire<T> clk, wire<U> reset,
                wire<V> enable, wire<W> output)
   {
-    integrator("int", clk, reset, enable, direction, output);
+    integrator("int", clk, reset, enable, wire<int>(direction), output);
   }
 }
 

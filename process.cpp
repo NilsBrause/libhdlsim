@@ -10,18 +10,16 @@ detail::process_int::process_int(std::string name,
   : process_base(name), logic(logic)
 {
   for(auto &w : outputs)
-    children.push_back(w);
+    add_child(w);
   for(auto &w : sensitivity_list)
-    parents.push_back(w);
+    add_parent(w);
 }
 
 void detail::process_int::update()
 {
   for(auto &w : children)
-    w->lock();
+    w->set_cur_parent(this);
   logic();
-  for(auto &w : children)
-    w->unlock();
 }
 
 process::process(std::string name,
@@ -31,8 +29,8 @@ process::process(std::string name,
   : p(new detail::process_int(name, sensitivity_list, outputs, logic))
 {
   for(auto &w : sensitivity_list)
-    w->children.push_back(p);
+    w->add_child(p);
   for(auto &w : outputs)
-    w->parents.push_back(p);
+    w->add_parent(p);
   detail::processes.push_back(p);
 }

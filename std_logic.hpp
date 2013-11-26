@@ -1,16 +1,11 @@
 #ifndef STD_LOGIC_HPP
 #define STD_LOGIC_HPP
 
-class std_logic;
-std::ostream& operator<<(std::ostream& os, const std_logic& rhs);
-
 class std_logic
 {
 private:
-  enum state_t { high, low, undef };
+  enum state_t { high, low, highz, undef };
   state_t state;
-      
-  friend std::ostream& operator<<(std::ostream& os, const std_logic& rhs);
 
 public:
   std_logic()
@@ -19,6 +14,11 @@ public:
   }
 
   std_logic(const bool& rhs)
+  {
+    operator=(rhs);
+  }
+
+  std_logic(const char& rhs)
   {
     operator=(rhs);
   }
@@ -35,17 +35,37 @@ public:
     return *this;
   }
 
-  bool operator==(const std_logic& rhs)
+  std_logic& operator=(const char& rhs)
+  {
+    switch(rhs)
+      {
+      case '1':
+        state = high;
+        break;
+      case '0':
+        state = low;
+        break;
+      case 'Z':
+        state = highz;
+        break;
+      default:
+        state = undef;
+        break;
+      }
+    return *this;
+  }
+
+  bool operator==(const std_logic& rhs) const
   {
     return state == rhs.state;
   }
 
-  bool operator!=(const std_logic& rhs)
+  bool operator!=(const std_logic& rhs) const
   {
     return state != rhs.state;
   }
 
-  operator bool()
+  operator bool() const
   {
     switch(state)
       {
@@ -58,7 +78,26 @@ public:
       }
   }
 
-  std_logic operator not()
+  operator char() const
+  {
+  switch(state)
+    {
+    case high:
+      return '1';
+      break;
+    case low:
+      return '0';
+      break;
+    case highz:
+      return 'Z';
+      break;
+    default:
+      return 'U';
+      break;
+    }
+  }
+
+  std_logic operator not() const
   {
     std_logic lhs;
     switch(state)
@@ -79,19 +118,34 @@ public:
 
 std::ostream& operator<<(std::ostream& os, const std_logic& rhs)
 {
-  switch(rhs.state)
-    {
-    case std_logic::high:
-      os << '1';
-      break;
-    case std_logic::low:
-      os << '0';
-      break;
-    default:
-      os << 'U';
-      break;
-    }
+  os << (char)rhs;
   return os;
+}
+
+std_logic resolve(std::map<hdl::detail::process_base*, std_logic> candidates,
+                  hdl::detail::wire_base *w)
+{
+  std::vector<std_logic> nonhz;
+  for(auto &i : candidates)
+    if((char)i.second != 'Z')
+      nonhz.push_back(i.second);
+  switch(nonhz.size())
+    {
+    case 0:
+      return std_logic('Z');
+      break;
+    case 1:
+      return nonhz.front();
+      break;
+    default: // short circuit
+      std::cerr << "WARNING: wire " << w->getname()
+                << " has been updated by the following processes: ";
+      for(auto &i : candidates)
+        std::cerr << i.first->getname() << " ";
+      std::cerr << std::endl;
+      return std_logic('U');
+      break;
+    } 
 }
 
 #endif // STD_LOGIC_HPP
