@@ -7,13 +7,53 @@ private:
   enum state_t { high, low, highz, undef };
   state_t state;
 
+  std_logic lut2(const std_logic &rhs, state_t hh, state_t hl, state_t lh, state_t ll) const
+  {
+    std_logic lhs;
+    switch(state)
+      {
+      case high:
+        switch(rhs.state)
+          {
+          case high:
+            lhs.state = hh;
+            break;
+          case low:
+            lhs.state = hl;
+            break;
+          default:
+            lhs.state = undef;
+            break;
+          }
+        break;
+      case low:
+        switch(rhs.state)
+          {
+          case high:
+            lhs.state = lh;
+            break;
+          case low:
+            lhs.state = ll;
+            break;
+          default:
+            lhs.state = undef;
+            break;
+          }
+        break;
+      default:
+        lhs.state = undef;
+        break;
+      }
+    return lhs;
+  }
+
 public:
   std_logic()
     : state(undef)
   {
   }
 
-  std_logic(const bool& rhs)
+  std_logic(const int& rhs)
   {
     operator=(rhs);
   }
@@ -29,9 +69,9 @@ public:
     return *this;
   }
 
-  std_logic& operator=(const bool& rhs)
+  std_logic& operator=(const int& rhs)
   {
-    state = (rhs ? high : low);
+    state = (rhs != 0 ? high : low);
     return *this;
   }
 
@@ -65,15 +105,15 @@ public:
     return state != rhs.state;
   }
 
-  operator bool() const
+  operator int() const
   {
     switch(state)
       {
       case high:
-        return true;
+        return 1;
         break;
       default:
-        return false;
+        return 0;
         break;
       }
   }
@@ -97,7 +137,7 @@ public:
     }
   }
 
-  std_logic operator not() const
+  std_logic operator !() const
   {
     std_logic lhs;
     switch(state)
@@ -113,6 +153,26 @@ public:
         break;
       }
     return lhs;
+  }
+
+  std_logic operator ~() const
+  {
+    retirn operator not();
+  }
+
+  std_logic operator &(const std_logic &rhs) const
+  {
+    return lut2(rhs, high, low, low, low);
+  }
+
+  std_logic operator |(const std_logic &rhs) const
+  {
+    return lut2(rhs, high, high, high, low);
+  }
+
+  std_logic operator ^(const std_logic &rhs) const
+  {
+    return lut2(rhs, low, high, high, low);
   }
 };
 

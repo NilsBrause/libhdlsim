@@ -8,12 +8,12 @@ int main()
 {
   // logic desription
 
-  wire<int> clk("clk", 0);
-  wire<int> reset("reset", 0);
-  wire<int> din("din", 0);
-  wire<int> dout("dout", 0);
-  wire<int> din2("din2", 0);
-  wire<int> dout2("dout2", 0);
+  wire<std_logic> clk("clk", '0');
+  wire<std_logic> reset("reset", 'U');
+  wire<std_logic> din("din", 'U');
+  wire<std_logic> dout("dout", 'U');
+  wire<std_logic> din2("din2", 'U');
+  wire<std_logic> dout2("dout2", 'U');
   wire<int> cnt("cnt", 0);
   wire<std_logic> inout("inout", 'U');
 
@@ -54,9 +54,9 @@ int main()
       clk = not clk;
       
       if(waitfor() < 10)
-        reset = 0;
+        reset = '0';
       else
-        reset = 1;
+        reset = '1';
       
       waitfor(1);
       

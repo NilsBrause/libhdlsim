@@ -77,7 +77,7 @@ namespace hdl
       void lock();
       void unlock();
       
-void set_cur_parent(process_base *parent);
+      void set_cur_parent(process_base *parent);
       wire_base(std::string name);
 
       friend class process_int;

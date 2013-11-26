@@ -156,6 +156,109 @@ namespace hdl
     {
       return w;
     }
+
+    // unary operators
+
+#define OPERATOR1(OP)     \
+    T operator OP() const \
+    {                     \
+      return OP w->get(); \
+    }                     \
+
+    OPERATOR1(not)
+    OPERATOR1(~)
+    OPERATOR1(+)
+    OPERATOR1(-)
+
+    // binary operators
+
+#define OPERATOR2(RET, OP)                   \
+    RET operator OP(const wire<T> &w2) const \
+    {                                        \
+      return w->get() OP (T)w2;              \
+    }                                        \
+                                             \
+    RET operator OP(const T &t) const        \
+    {                                        \
+      return w->get() OP t;                  \
+    }
+
+    OPERATOR2(bool, ==)
+    OPERATOR2(bool, !=)
+    OPERATOR2(bool, >)
+    OPERATOR2(bool, <)
+    OPERATOR2(bool, >=)
+    OPERATOR2(bool, <=)
+    OPERATOR2(T, &)
+    OPERATOR2(T, |)
+    OPERATOR2(T, ^)
+    OPERATOR2(T, +)
+    OPERATOR2(T, -)
+    OPERATOR2(T, *)
+    OPERATOR2(T, /)
+    OPERATOR2(T, %)
+
+    // modifying binary operators
+
+#define OPERATOR3(OP)                             \
+    wire<T> &operator OP(const wire<T> &w2) const \
+    {                                             \
+      w->set(w->get() OP (T)w2);                  \
+      return *this;                               \
+    }                                             \
+                                                  \
+    wire<T> &operator OP(const T &t) const        \
+    {                                             \
+      w->set(w->get() OP t);                      \
+      return *this;                               \
+    }
+
+    OPERATOR3(&=);
+    OPERATOR3(|=);
+    OPERATOR3(^=);
+    OPERATOR3(+=);
+    OPERATOR3(-=);
+    OPERATOR3(*=);
+    OPERATOR3(/=);
+    OPERATOR3(%=);
+
+    // two-type binary operators
+
+#define OPERATOR4(RET, OP)                   \
+    template <typename U>                    \
+    RET operator OP(const wire<U> &w2) const \
+    {                                        \
+      return w->get() OP (U)w2;              \
+    }                                        \
+                                             \
+    template <typename U>                    \
+    RET operator OP(const U &t) const        \
+    {                                        \
+      return w->get() OP (U)t;               \
+    }
+
+    OPERATOR4(T, <<);
+    OPERATOR4(T, >>);
+
+    // modifying two-type binary operators
+
+#define OPERATOR5(OP)                             \
+    template <typename U>                         \
+    wire<T> &operator OP(const wire<U> &w2) const \
+    {                                             \
+      w->set(w->get() OP (U)w2);                  \
+      return *this;                               \
+    }                                             \
+                                                  \
+    template <typename U>                         \
+    wire<T> &operator OP(const U &t) const        \
+    {                                             \
+      w->set(w->get() OP t);                      \
+      return *this;                               \
+    }
+
+    OPERATOR5(<<=)
+    OPERATOR5(>>=)
   };
 
   template <typename T>
