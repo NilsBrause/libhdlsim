@@ -27,17 +27,20 @@ namespace hdl
     return candidates.begin()->second;
   }
 
+  template<typename T>
+  class wire;
+
   namespace detail
   {
     template <typename T>
     class wire_int : public wire_base
     {
-    public:
+    private:
       T state;
       T prev_state;
       std::map<process_base*, T> next_state;
       bool first;
-      
+
       virtual void update()
       {
         switch(next_state.size())
@@ -106,6 +109,8 @@ namespace hdl
         : wire_base(name), state(initial), prev_state(initial), first(true)
       {
       }
+      
+      friend class wire<T>;
     };
   }
 
@@ -129,7 +134,7 @@ namespace hdl
 
     operator T() const
     {
-      return w->state;
+      return w->get();
     }
 
     void operator=(const T &t) const

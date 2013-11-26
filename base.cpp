@@ -24,7 +24,9 @@ uint64_t hdl::waitfor(uint64_t duration)
           wires2up.push_back(w);
 
       // repeat as long as there are wires to be updated.
+#ifdef _OPENMP
 #pragma omp parallel num_threads(2)
+#endif
       while(wires2up.size() > 0)
         {
           // update wires and collect all connected processes
@@ -35,7 +37,9 @@ uint64_t hdl::waitfor(uint64_t duration)
             std::cerr << "  " << w->myname << std::endl;
 #endif
 
+#ifdef _OPENMP
 #pragma omp for schedule(dynamic)
+#endif
           for(unsigned int c = 0; c < wires2up.size(); c++)
             {
 #ifdef DEBUG
@@ -44,7 +48,9 @@ uint64_t hdl::waitfor(uint64_t duration)
               wires2up[c]->update();
             }
 
+#ifdef _OPENMP
 #pragma omp single
+#endif
           {
             procs2up.clear();
             for(auto &w : wires2up)
@@ -67,10 +73,14 @@ uint64_t hdl::waitfor(uint64_t duration)
             std::cerr << "  " << p->myname << std::endl;
 #endif
 
+#ifdef _OPENMP
 #pragma omp single
           wires2up.clear();
+#endif
 
+#ifdef _OPENMP
 #pragma omp for schedule(dynamic)
+#endif
           for(unsigned int c = 0; c < procs2up.size(); c++)
             {
 #ifdef DEBUG
@@ -79,7 +89,9 @@ uint64_t hdl::waitfor(uint64_t duration)
               procs2up[c]->update();
             }
 
+#ifdef _OPENMP
 #pragma omp single
+#endif
           {
             for(auto &p : procs2up)
               for(auto &w : p->children)
@@ -109,16 +121,6 @@ uint64_t hdl::waitfor(uint64_t duration)
   return hdl::detail::cur_time;
 }
 
-hdl::detail::base::base(std::string name)
-  : myname(name)
-{
-}
-
-std::string hdl::detail::base::getname()
-{
-  return myname;
-}
-
 hdl::detail::process_base::process_base(std::string name)
   : base(name)
 {
@@ -130,26 +132,6 @@ hdl::detail::wire_base::wire_base(std::string name)
 #ifdef _OPENMP
   omp_init_nest_lock(&omp_lock);
 #endif
-}
-
-void hdl::detail::process_base::add_child(std::shared_ptr<wire_base> child)
-{
-  children.push_back(child);
-}
-
-void hdl::detail::process_base::add_parent(std::shared_ptr<wire_base> parent)
-{
-  parents.push_back(parent);
-}
-
-void hdl::detail::wire_base::add_child(std::shared_ptr<process_base> child)
-{
-  children.push_back(child);
-}
-
-void hdl::detail::wire_base::add_parent(std::shared_ptr<process_base> parent)
-{
-  parents.push_back(parent);
 }
 
 void hdl::detail::wire_base::lock()
