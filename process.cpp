@@ -34,3 +34,19 @@ process::process(std::string name,
     w->add_parent(p);
   detail::processes.push_back(p);
 }
+
+process::process(std::string name,
+                 std::list<std::shared_ptr<detail::wire_base> > sensitivity_list,
+                 std::list<std::shared_ptr<detail::wire_base> > inputs,
+                 std::list<std::shared_ptr<detail::wire_base> > outputs,
+                 std::function<void()> logic)
+  : p(new detail::process_int(name, sensitivity_list, outputs, logic))
+{
+  for(auto &w : sensitivity_list)
+    w->add_child(p);
+  for(auto &w : inputs)
+    w->add_child(p);
+  for(auto &w : outputs)
+    w->add_parent(p);
+  detail::processes.push_back(p);
+}

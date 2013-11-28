@@ -126,8 +126,16 @@ hdl::detail::process_base::process_base(std::string name)
 {
 }
 
+std::string new_tmp()
+{
+  static int n = 0;
+  std::stringstream ss;
+  ss << "unnamed" << n++;
+  return ss.str();
+}
+
 hdl::detail::wire_base::wire_base(std::string name)
-  : base(name)
+  : base(name == "" ? new_tmp() : name)
 {
 #ifdef _OPENMP
   omp_init_nest_lock(&omp_lock);

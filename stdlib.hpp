@@ -11,7 +11,7 @@ namespace hdl
            wire<V> enable, wire<W> din, wire<W> dout)
   {
     process
-      (name, {clk, reset}, {dout}, [=]
+      (name, {clk, reset}, {enable}, {dout}, [=]
        {
          if(reset == 0)
            dout = 0;
@@ -36,7 +36,7 @@ namespace hdl
   void integrator(std::string name, wire<T> clk, wire<U> reset,
                   wire<V> enable, wire<W> input, wire<W> output)
   {
-    wire<int> tmp;
+    wire<W> tmp("tmp");
     reg("reg", clk, reset, enable, tmp, output);
     adder("add", output, input, tmp);
   }
@@ -45,7 +45,7 @@ namespace hdl
   void counter(std::string name, wire<T> clk, wire<U> reset,
                wire<V> enable, wire<W> output)
   {
-    integrator("int", clk, reset, enable, wire<int>(direction), output);
+    integrator("int", clk, reset, enable, wire<int>("direction", direction), output);
   }
 }
 

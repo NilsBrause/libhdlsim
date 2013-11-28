@@ -6,6 +6,8 @@
 #include <string>
 #include <cstdint>
 #include <vector>
+#include <algorithm>
+#include <sstream>
 #ifdef _OPENMP
 #include <omp.h>
 #endif
@@ -37,12 +39,14 @@ namespace hdl
 
       void add_child(std::shared_ptr<T> child)
       {
-        children.push_back(child);
+        if(std::find(children.begin(), children.end(), child) == children.end())
+          children.push_back(child);
       }
 
       void add_parent(std::shared_ptr<T> parent)
       {
-        parents.push_back(parent);
+        if(std::find(parents.begin(), parents.end(), parent) == parents.end())
+          parents.push_back(parent);
       }
       
       friend uint64_t hdl::waitfor(uint64_t duration);
@@ -63,6 +67,8 @@ namespace hdl
       process_base(std::string name);
     };
 
+    class process_int;
+
     class wire_base : public base<process_base>
     {
     private:
@@ -75,15 +81,16 @@ namespace hdl
     protected:
       std::vector<process_base*> cur_parent;
       void lock();
-      void unlock();
-      
+      void unlock();      
       void set_cur_parent(process_base *parent);
+      virtual bool event() = 0;
+      virtual std::string print() = 0;
       wire_base(std::string name);
 
-      friend class process_int;
+      friend class hdl::detail::process_int;
 
     public:
-    };    
+    };
 
     extern uint64_t cur_time;
     extern std::list<std::shared_ptr<wire_base> > wires;

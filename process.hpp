@@ -31,6 +31,12 @@ namespace hdl
             std::list<std::shared_ptr<detail::wire_base> > sensitivity_list,
             std::list<std::shared_ptr<detail::wire_base> > outputs,
             std::function<void()> logic);
+
+    process(std::string name,
+            std::list<std::shared_ptr<detail::wire_base> > sensitivity_list,
+            std::list<std::shared_ptr<detail::wire_base> > inputs,
+            std::list<std::shared_ptr<detail::wire_base> > outputs,
+            std::function<void()> logic);
   };
 }
 

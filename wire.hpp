@@ -4,6 +4,7 @@
 #include <iostream>
 #include <map>
 #include <memory>
+#include <limits>
 #include <base.hpp>
 #include <process.hpp>
 #ifdef _OPENMP
@@ -12,26 +13,26 @@
 
 namespace hdl
 {
-  // Resolve multiple assignments to a wire.
-  // Has to be reimplemented by types with high-Z support.
-  template <typename T>
-  T resolve(std::map<hdl::detail::process_base*, T> candidates,
-            hdl::detail::wire_base *w)
-  {
-    std::cerr << "WARNING: wire " << w->getname()
-              << " has been updated by the following processes: ";
-    for(auto &i : candidates)
-      std::cerr << i.first->getname() << " ";
-    std::cerr << std::endl;
-
-    return candidates.begin()->second;
-  }
-
   template<typename T>
   class wire;
 
   namespace detail
   {
+    // Resolve multiple assignments to a wire.
+    // Has to be reimplemented by types with high-Z support.
+    template <typename T>
+    T resolve(std::map<hdl::detail::process_base*, T> candidates,
+              hdl::detail::wire_base *w)
+    {
+      std::cerr << "WARNING: wire " << w->getname()
+                << " has been updated by the following processes: ";
+      for(auto &i : candidates)
+        std::cerr << i.first->getname() << " ";
+      std::cerr << std::endl;
+
+      return candidates.begin()->second;
+    }
+
     template <typename T>
     class wire_int : public wire_base
     {
@@ -106,6 +107,13 @@ namespace hdl
       {
         return prev_state != state;
       }
+
+      std::string print()
+      {
+        std::stringstream ss;
+        ss << get();
+        return ss.str();
+      }
       
       wire_int(std::string name, T initial)
         : wire_base(name), state(initial), prev_state(initial), first(true)
@@ -122,16 +130,21 @@ namespace hdl
     std::shared_ptr<detail::wire_int<T> > w;
 
   public:
-    wire(T initial = T())
-      : w(new detail::wire_int<T>("wire", initial))
+    wire(T initial)
+      : w(new detail::wire_int<T>("", initial))
     {
       detail::wires.push_back(w);
     }
 
-    wire(std::string name, T initial)
+    wire(std::string name, T initial = T())
       : w(new detail::wire_int<T>(name, initial))
     {
       detail::wires.push_back(w);
+    }
+
+    void replace(const wire<T> &w2)
+    {
+      w = w2.w;
     }
 
     operator T() const

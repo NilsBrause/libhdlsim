@@ -201,7 +201,10 @@ std_logic resolve(std::map<hdl::detail::process_base*, std_logic> candidates,
       std::cerr << "WARNING: wire " << w->getname()
                 << " has been updated by the following processes: ";
       for(auto &i : candidates)
-        std::cerr << i.first->getname() << " ";
+        if(i.first)
+          std::cerr << i.first->getname() << " ";
+        else
+          std::cerr << "testbench ";
       std::cerr << std::endl;
       return std_logic('U');
       break;

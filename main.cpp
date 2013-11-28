@@ -1,4 +1,5 @@
 #include <iostream>
+#include <tuple>
 
 #include <hdl.hpp>
 
@@ -9,18 +10,18 @@ int main()
   // logic desription
 
   wire<std_logic> clk("clk", '0');
-  wire<std_logic> reset("reset", 'U');
-  wire<std_logic> din("din", 'U');
-  wire<std_logic> dout("dout", 'U');
-  wire<std_logic> din2("din2", 'U');
-  wire<std_logic> dout2("dout2", 'U');
-  wire<int> cnt("cnt", 0);
-  wire<std_logic> inout("inout", 'U');
+  wire<std_logic> reset("reset");
+  wire<std_logic> din("din");
+  wire<std_logic> dout("dout");
+  wire<std_logic> din2("din2");
+  wire<std_logic> dout2("dout2");
+  //wire<int> cnt("cnt");
+  wire<std_logic> inout("inout");
 
-  reg("reg1", clk, reset, wire<int>(1), din, dout);
-  reg("reg2", dout, reset, wire<int>(1), din2, dout2);
+  reg("reg1", clk, reset, wire<std_logic>('1'), din, dout);
+  reg("reg2", dout, reset, wire<std_logic>('1'), din2, dout2);
 
-  counter("cnt1", clk, reset, wire<int>(1), cnt);
+  //counter("cnt1", clk, reset, wire<std_logic>("enable", '1'), cnt);
   
   process
     ("notnot", {dout, dout2}, {din, din2}, [=]
@@ -59,11 +60,6 @@ int main()
         reset = '1';
       
       waitfor(1);
-      
-      std::cout << "(" << clk << " | " << reset << ") "
-                << din << " " << dout << " | "
-                << din2 << " " << dout2 << " "
-                << cnt << " " << inout << std::endl;
     }
 
   return 0;
