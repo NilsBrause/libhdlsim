@@ -58,6 +58,13 @@ public:
     operator=(rhs);
   }
 
+  std_logic z()
+  {
+    std_logic result;
+    result.state = highz;
+    return result;
+  }
+
   std_logic& operator=(const std_logic& rhs)
   {
     state = rhs.state;
