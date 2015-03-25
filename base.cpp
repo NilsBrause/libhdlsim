@@ -5,7 +5,7 @@
 uint64_t hdl::waitfor(uint64_t duration)
 {
   static std::vector<std::shared_ptr<hdl::detail::wire_base> > wires2up;
-  static std::vector<std::shared_ptr<hdl::detail::process_base> > procs2up;
+  static std::vector<std::shared_ptr<hdl::detail::part_base> > procs2up;
 
   hdl::detail::cur_time += duration;
   if(duration > 0)
@@ -15,9 +15,12 @@ uint64_t hdl::waitfor(uint64_t duration)
 #endif
 
       wires2up.reserve(hdl::detail::wires.size());
-      procs2up.reserve(hdl::detail::processes.size());
+      procs2up.reserve(hdl::detail::parts.size());
 
       // initialze with wires that have been changed in the testbench
+#ifdef DEBUG
+      std::cerr << "Scanning for wires." << std::endl;
+#endif
       wires2up.clear();
       for(auto &w : hdl::detail::wires)
         if(w->changed())
@@ -29,12 +32,12 @@ uint64_t hdl::waitfor(uint64_t duration)
 #endif
       while(wires2up.size() > 0)
         {
-          // update wires and collect all connected processes
+          // update wires and collect all connected parts
 
 #ifdef DEBUG
           std::cerr << "Wires to update: " << std::endl;
           for(auto &w : wires2up)
-            std::cerr << "  " << w->myname << std::endl;
+            std::cerr << "  " << w->getname() << std::endl;
 #endif
 
 #ifdef _OPENMP
@@ -43,7 +46,7 @@ uint64_t hdl::waitfor(uint64_t duration)
           for(unsigned int c = 0; c < wires2up.size(); c++)
             {
 #ifdef DEBUG
-              std::cerr << "Updating wire " << wires2up[c]->myname << std::endl;
+              std::cerr << "Updating wire " << wires2up[c]->getname() << std::endl;
 #endif
               wires2up[c]->update();
             }
@@ -52,6 +55,9 @@ uint64_t hdl::waitfor(uint64_t duration)
 #pragma omp single
 #endif
           {
+#ifdef DEBUG
+            std::cerr << "Scanning for parts." << std::endl;
+#endif
             procs2up.clear();
             for(auto &w : wires2up)
               for(auto &p : w->children)
@@ -59,18 +65,18 @@ uint64_t hdl::waitfor(uint64_t duration)
                    == procs2up.end())
                   {
 #ifdef DEBUG
-                    std::cerr << "Adding process " << p->myname << std::endl;
+                    std::cerr << "Adding part " << p->getname() << std::endl;
 #endif
                     procs2up.push_back(p);
                   }
           }
 
-          // update processes and collect all connected wires
+          // update parts and collect all connected wires
 
 #ifdef DEBUG
-          std::cerr << "Processes to update: " << std::endl;
+          std::cerr << "Parts to update: " << std::endl;
           for(auto &p : procs2up)
-            std::cerr << "  " << p->myname << std::endl;
+            std::cerr << "  " << p->getname() << std::endl;
 #endif
 
 #ifdef _OPENMP
@@ -84,7 +90,7 @@ uint64_t hdl::waitfor(uint64_t duration)
           for(unsigned int c = 0; c < procs2up.size(); c++)
             {
 #ifdef DEBUG
-              std::cerr << "Updating process " << procs2up[c]->myname << std::endl;
+              std::cerr << "Updating part " << procs2up[c]->getname() << std::endl;
 #endif
               procs2up[c]->update();
             }
@@ -101,7 +107,7 @@ uint64_t hdl::waitfor(uint64_t duration)
                        == wires2up.end())
                       {
 #ifdef DEBUG
-                        std::cerr << "Adding wire " << w->myname << std::endl;
+                        std::cerr << "Adding wire " << w->getname() << std::endl;
 #endif
                         wires2up.push_back(w);
                       }
@@ -109,7 +115,7 @@ uint64_t hdl::waitfor(uint64_t duration)
                 else
                   {
 #ifdef DEBUG
-                    std::cerr << "Wire " << w->myname << " didn't change." << std::endl;
+                    std::cerr << "Wire " << w->getname() << " didn't change." << std::endl;
 #endif
                   }
           }
@@ -121,11 +127,6 @@ uint64_t hdl::waitfor(uint64_t duration)
   return hdl::detail::cur_time;
 }
 
-hdl::detail::process_base::process_base(std::string name)
-  : base(name)
-{
-}
-
 std::string new_tmp()
 {
   static int n = 0;
@@ -134,42 +135,78 @@ std::string new_tmp()
   return ss.str();
 }
 
-hdl::detail::wire_base::wire_base(std::string name)
-  : base(name == "" ? new_tmp() : name)
+hdl::detail::root::root(std::string name)
+  : myname(name == "" ? new_tmp() : name)
 {
 #ifdef _OPENMP
   omp_init_nest_lock(&omp_lock);
 #endif
 }
 
-void hdl::detail::wire_base::lock()
+std::string hdl::detail::root::getname()
+{
+  return myname;
+}
+
+void hdl::detail::root::set_cur_part(hdl::detail::part_base *the_part)
+{
+#ifdef _OPENMP
+  unsigned int n = omp_get_thread_num();
+#else
+  unsigned int n = 0;
+#endif
+  lock();
+  if(cur_part.size() < n+1)
+    cur_part.resize(n+1);
+  cur_part[n] = the_part;
+  unlock();
+}
+
+hdl::detail::part_base *hdl::detail::root::get_cur_part()
+{
+#ifdef _OPENMP
+  unsigned int n = omp_get_thread_num();
+#else
+  unsigned int n = 0;
+#endif
+  part_base *p;
+  lock();
+  if(cur_part.size() == 0) // set from top level testbench
+    p = NULL;
+  else
+    p = cur_part.at(n);
+  unlock();
+  return p;
+}
+
+void hdl::detail::root::lock()
 {
 #ifdef _OPENMP
   omp_set_nest_lock(&omp_lock);
 #endif
 }
 
-void hdl::detail::wire_base::unlock()
+void hdl::detail::root::unlock()
 {
 #ifdef _OPENMP
   omp_unset_nest_lock(&omp_lock);
 #endif
 }
 
-void hdl::detail::wire_base::set_cur_parent(hdl::detail::process_base *parent)
+hdl::detail::part_base::part_base(std::string name)
+  : base(name)
 {
-  lock();
-#ifdef _OPENMP
-  unsigned int n = omp_get_thread_num();
-#else
-  unsigned int n = 0;
-#endif
-  if(cur_parent.size() < n+1)
-    cur_parent.resize(n+1);
-  cur_parent[n] = parent;
-  unlock();
+}
+
+hdl::detail::wire_base::wire_base(std::string name)
+  : base(name)
+{
 }
 
 uint64_t hdl::detail::cur_time = 0;
 std::list<std::shared_ptr<hdl::detail::wire_base> > hdl::detail::wires;
-std::list<std::shared_ptr<hdl::detail::process_base> > hdl::detail::processes;
+std::list<std::shared_ptr<hdl::detail::part_base> > hdl::detail::parts;
+std::vector<hdl::detail::part_base*> hdl::detail::root::cur_part;
+#ifdef _OPENMP
+omp_nest_lock_t hdl::detail::root::omp_lock;
+#endif

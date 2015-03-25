@@ -3,7 +3,7 @@
 
 #include <base.hpp>
 #include <wire.hpp>
-#include <process.hpp>
+#include <part.hpp>
 #include <stdlib.hpp>
 #include <std_logic.hpp>
 

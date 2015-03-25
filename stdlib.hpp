@@ -2,50 +2,64 @@
 #define STDLIB_HPP
 
 #include <wire.hpp>
-#include <process.hpp>
+#include <part.hpp>
 
 namespace hdl
 {
-  template <typename T, typename U, typename V, typename W>
-  void reg(std::string name, wire<T> clk, wire<U> reset,
-           wire<V> enable, wire<W> din, wire<W> dout)
+  template <typename B, typename T>
+  void reg(wire<B> clk,
+           wire<B> reset,
+           wire<B> enable,
+           wire<T> din,
+           wire<T> dout)
   {
-    process
-      (name, {clk, reset}, {enable}, {dout}, [=]
-       {
-         if(reset == 0)
-           dout = 0;
-         else if(clk.event() and clk == 1)
-           if(enable == 1)
+    part({ clk, reset, enable, din },
+         { dout },
+         [=]
+         {
+           if(reset == 0)
+             dout = T();
+           else if(clk.event() and clk == 1 and enable == 1)
              dout = din;
-       });
-  }
+         }, "reg");
+  };
 
   template <typename T>
-  void adder(std::string name, wire<T> input1,
-             wire<T> input2, wire<T> output)
+  void adder(wire<T> in1,
+             wire<T> in2,
+             wire<T> out)
   {
-    process
-      ("adder", {input1, input2}, {output}, [=]
-       {
-         output = input1 + input2;
-       });
+    part({ in1, in2 },
+         { out },
+         [=]
+         {
+           out = in1 + in2;
+         }, "adder");
   }
 
-  template <typename T, typename U, typename V, typename W>
-  void integrator(std::string name, wire<T> clk, wire<U> reset,
-                  wire<V> enable, wire<W> input, wire<W> output)
+  template <typename B, typename T>
+  void counter(wire<B> clk,
+               wire<B> reset,
+               wire<B> enable,
+               wire<T> out)
   {
-    wire<W> tmp("tmp");
-    reg("reg", clk, reset, enable, tmp, output);
-    adder("add", output, input, tmp);
+    wire<T> one("one");
+    wire<T> tmp("tmp");
+    one = 1;
+    reg(clk, reset, enable, tmp, out);
+    adder(out, one, tmp);
   }
 
-  template <int direction = 1, typename T, typename U, typename V, typename W>
-  void counter(std::string name, wire<T> clk, wire<U> reset,
-               wire<V> enable, wire<W> output)
+  template <typename B, typename T>
+  void integrator(wire<B> clk,
+                  wire<B> reset,
+                  wire<B> enable,
+                  wire<T> in,
+                  wire<T> out)
   {
-    integrator("int", clk, reset, enable, wire<int>("direction", direction), output);
+    wire<T> tmp("tmp");
+    reg(clk, reset, enable, tmp, out);
+    adder(out, in, tmp);
   }
 }
 

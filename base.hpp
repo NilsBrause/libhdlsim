@@ -16,16 +16,33 @@ namespace hdl
 {
   uint64_t waitfor(uint64_t duration = 0);
 
-  class process;
-
   namespace detail
   {
-    template <typename T>
-    class base
+    class part_base;
+
+    class root
     {
     private:
       std::string myname;
+#ifdef _OPENMP
+      static omp_nest_lock_t omp_lock;
+#endif
+      static std::vector<part_base*> cur_part;
 
+    protected:
+      void set_cur_part(part_base *the_part);
+      part_base *get_cur_part();
+      void lock();
+      void unlock();      
+
+    public:
+      root(std::string name);
+      std::string getname();
+    };
+      
+    template <typename T>
+    class base : public root
+    {
     protected:
       std::list<std::shared_ptr<T> > parents;
       std::list<std::shared_ptr<T> > children;
@@ -33,10 +50,11 @@ namespace hdl
       virtual void update() = 0;
 
       base(std::string name)
-        : myname(name)
+        : root(name)
       {
       }
 
+    public:
       void add_child(std::shared_ptr<T> child)
       {
         if(std::find(children.begin(), children.end(), child) == children.end())
@@ -50,51 +68,38 @@ namespace hdl
       }
       
       friend uint64_t hdl::waitfor(uint64_t duration);
-      friend class hdl::process;
-
-    public:
-      std::string getname()
-      {
-        return myname;
-      }
     };
     
     class wire_base;
 
-    class process_base : public base<wire_base>
+    class part_base : public base<wire_base>
     {
     protected:
-      process_base(std::string name);
+      part_base(std::string name);
     };
 
-    class process_int;
+    class part_int;
 
-    class wire_base : public base<process_base>
+    class wire_base : public base<part_base>
     {
     private:
-#ifdef _OPENMP
-      omp_nest_lock_t omp_lock;
-#endif
       virtual bool changed() = 0;
       friend uint64_t hdl::waitfor(uint64_t duration);
 
     protected:
-      std::vector<process_base*> cur_parent;
-      void lock();
-      void unlock();      
-      void set_cur_parent(process_base *parent);
+      std::string id;
+      std::string getid();
+      virtual int digits() = 0;
       virtual bool event() = 0;
       virtual std::string print() = 0;
       wire_base(std::string name);
 
-      friend class hdl::detail::process_int;
-
-    public:
+      friend class hdl::detail::part_int;
     };
 
     extern uint64_t cur_time;
     extern std::list<std::shared_ptr<wire_base> > wires;
-    extern std::list<std::shared_ptr<process_base> > processes;
+    extern std::list<std::shared_ptr<part_base> > parts;
   }
 }
 

@@ -5,8 +5,10 @@
 #include <map>
 #include <memory>
 #include <limits>
+#include <set>
+
 #include <base.hpp>
-#include <process.hpp>
+
 #ifdef _OPENMP
 #include <omp.h>
 #endif
@@ -18,20 +20,23 @@ namespace hdl
 
   namespace detail
   {
+#ifdef MULTIASSIGN
     // Resolve multiple assignments to a wire.
     // Has to be reimplemented by types with high-Z support.
     template <typename T>
-    T resolve(std::map<hdl::detail::process_base*, T> candidates,
+    T resolve(std::map<hdl::detail::part_base*, T> candidates,
               hdl::detail::wire_base *w)
     {
-      std::cerr << "WARNING: wire " << w->getname()
-                << " has been updated by the following processes: ";
-      for(auto &i : candidates)
-        std::cerr << i.first->getname() << " ";
-      std::cerr << std::endl;
-
+      if(candidates.size() > 1)
+        {
+          std::cerr << "ERROR: resolve() unimplemented for type "
+                    << typeid(T).name() << ". Drivers: " << std::endl;
+          for(auto d : candidates)
+            std::cout << "  " << (!d.first ? "NULL" : d.first->getname()) << std::endl;
+        }
       return candidates.begin()->second;
     }
+#endif
 
     template <typename T>
     class wire_int : public wire_base
@@ -39,41 +44,52 @@ namespace hdl
     private:
       T state;
       T prev_state;
-      std::map<process_base*, T> next_state;
+#ifdef MULTIASSIGN
+      std::map<part_base*, T> next_state;
+      std::map<part_base*, T> drivers;
+#else
+      T next_state;
+      std::set<part_base*> drivers;
+#endif
       bool first;
+      std::set<part_base*> seen_event;
 
       virtual void update()
       {
-        switch(next_state.size())
+#ifdef MULTIASSIGN
+        if(next_state.size() > 0)
           {
-          case 0:
-            break;
-          case 1:
             prev_state = state;
-            state = next_state.begin()->second;
-            break;
-          default:
-            prev_state = state;
-            state = resolve(next_state, this);
-            break;
+            for(auto &i : next_state)
+              drivers[i.first] = i.second;
+            state = resolve(drivers, this);
+            next_state.clear();
           }
+#else
+        prev_state = state;
+        state = next_state;
+#endif
+        seen_event.clear();
       }
       
       bool changed()
       {
         if(!first)
-          switch(next_state.size())
-            {
-            case 0:
+          {
+#ifdef MULTIASSIGN
+            if(next_state.size() > 0)
+              {
+                std::map<part_base*, T> tmp = drivers;
+                for(auto &i : next_state)
+                  tmp[i.first] = i.second;
+                return resolve(tmp, this) != state;
+              }
+            else
               return false;
-              break;
-            case 1:
-              return state != next_state.begin()->second;
-              break;
-            default:
-              return state != resolve(next_state, this);
-              break;
-            }
+#else            
+            return (next_state != state);
+#endif
+          }
         else
           {
             first = false;
@@ -83,19 +99,26 @@ namespace hdl
 
       void set(const T &t)
       {
+#ifdef MULTIASSIGN
+        part_base *p = get_cur_part();
         lock();
-#ifdef _OPENMP
-        unsigned int n = omp_get_thread_num();
-#else
-        unsigned int n = 0;
-#endif
-        process_base *p;
-        if(cur_parent.size() == 0) // set from top level testbench
-          p = NULL;
-        else
-          p = cur_parent.at(n);
         next_state[p] = t;
         unlock();
+#else
+#ifdef DEBUG
+        part_base *p = get_cur_part();
+        lock();
+        drivers.insert(p);
+        if(drivers.size() > 1)
+          {
+            std::cerr << "ERROR: Wire \"" << getname() << "\" has multiple drivers: " << std::endl;
+            for(auto d : drivers)
+              std::cout << "  " << (!d ? "NULL" : d->getname()) << (d == p ? "*" : "" ) << std::endl;
+          }
+        unlock();
+#endif
+        next_state = t;
+#endif
       }
       
       T get()
@@ -105,7 +128,11 @@ namespace hdl
 
       bool event()
       {
-        return prev_state != state;
+        part_base *p = get_cur_part();
+        lock();
+        bool not_seen = seen_event.insert(p).second;
+        unlock();
+        return (prev_state != state) && not_seen;
       }
 
       std::string print()
@@ -136,7 +163,13 @@ namespace hdl
       detail::wires.push_back(w);
     }
 
-    wire(std::string name, T initial = T())
+    wire(std::string name)
+      : w(new detail::wire_int<T>(name, T()))
+    {
+      detail::wires.push_back(w);
+    }
+
+    wire(std::string name, T initial)
       : w(new detail::wire_int<T>(name, initial))
     {
       detail::wires.push_back(w);
@@ -167,6 +200,8 @@ namespace hdl
       return w->event();
     }
 
+    // conversion operators
+    
     operator std::shared_ptr<detail::wire_base>() const
     {
       return w;

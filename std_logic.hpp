@@ -53,12 +53,7 @@ public:
   {
   }
 
-  std_logic(const int& rhs)
-  {
-    operator=(rhs);
-  }
-
-  std_logic(const char& rhs)
+  std_logic(const bool rhs)
   {
     operator=(rhs);
   }
@@ -69,29 +64,9 @@ public:
     return *this;
   }
 
-  std_logic& operator=(const int& rhs)
+  std_logic& operator=(const bool rhs)
   {
-    state = (rhs != 0 ? high : low);
-    return *this;
-  }
-
-  std_logic& operator=(const char& rhs)
-  {
-    switch(rhs)
-      {
-      case '1':
-        state = high;
-        break;
-      case '0':
-        state = low;
-        break;
-      case 'Z':
-        state = highz;
-        break;
-      default:
-        state = undef;
-        break;
-      }
+    state = (rhs > 0 ? high : low);
     return *this;
   }
 
@@ -105,15 +80,15 @@ public:
     return state != rhs.state;
   }
 
-  operator int() const
+  operator bool() const
   {
     switch(state)
       {
       case high:
-        return 1;
+        return true;
         break;
       default:
-        return 0;
+        return false;
         break;
       }
   }
@@ -182,7 +157,8 @@ std::ostream& operator<<(std::ostream& os, const std_logic& rhs)
   return os;
 }
 
-std_logic resolve(std::map<hdl::detail::process_base*, std_logic> candidates,
+#ifdef MULTIASSIGN
+std_logic resolve(std::map<hdl::detail::part_base*, std_logic> candidates,
                   hdl::detail::wire_base *w)
 {
   std::vector<std_logic> nonhz;
@@ -199,7 +175,7 @@ std_logic resolve(std::map<hdl::detail::process_base*, std_logic> candidates,
       break;
     default: // short circuit
       std::cerr << "WARNING: wire " << w->getname()
-                << " has been updated by the following processes: ";
+                << " has been updated by the following parts: ";
       for(auto &i : candidates)
         if(i.first)
           std::cerr << i.first->getname() << " ";
@@ -210,5 +186,6 @@ std_logic resolve(std::map<hdl::detail::process_base*, std_logic> candidates,
       break;
     } 
 }
+#endif
 
 #endif // STD_LOGIC_HPP
