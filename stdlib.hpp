@@ -128,8 +128,8 @@ namespace hdl
            wire<T> carryout = wire<T>(0))
   {
     static_assert(bits > 0, "bits > 0");
-    part({ in1, in2 },
-         { out },
+    part({ in1, in2, carryin },
+         { out, carryout },
          [=]
          {
            T carry = carryin;
@@ -158,8 +158,8 @@ namespace hdl
   void sub(bus<T, bits> in1,
            bus<T, bits> in2,
            bus<T, bits> out,
-           wire<T> borrowin,
-           wire<T> borrowout)
+           wire<T> borrowin = wire<T>(0),
+           wire<T> borrowout = wire<T>(0))
   {
     static_assert(bits > 0, "bits > 0");
     bus<T, bits> in2inv;
@@ -180,7 +180,7 @@ namespace hdl
   {
     static_assert(bits > 0, "bits > 0");
     bus<T, bits> tmp;
-    add(out, in, tmp, wire<T>(0), wire<T>(0));
+    add(out, in, tmp);
     reg(clk, reset, enable, tmp, out);
   }
 
@@ -193,8 +193,8 @@ namespace hdl
   {
     static_assert(bits > 0, "bits > 0");
     bus<T, bits> tmp;
-    reg(clk, reset, enable, tmp, out);
-    sub(out, in, tmp, wire<T>(0), wire<T>(0));
+    reg(clk, reset, enable, in, tmp);
+    sub(in, tmp, out);
   }
     
   template <typename B, typename T, unsigned int bits>
