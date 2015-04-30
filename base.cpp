@@ -27,9 +27,6 @@ uint64_t hdl::waitfor(uint64_t duration)
           wires2up.push_back(w);
 
       // repeat as long as there are wires to be updated.
-#ifdef _OPENMP
-#pragma omp parallel num_threads(2)
-#endif
       while(wires2up.size() > 0)
         {
           // update wires and collect all connected parts
@@ -51,9 +48,6 @@ uint64_t hdl::waitfor(uint64_t duration)
               wires2up[c]->update();
             }
 
-#ifdef _OPENMP
-#pragma omp single
-#endif
           {
 #ifdef DEBUG
             std::cerr << "Scanning for parts." << std::endl;
@@ -79,9 +73,6 @@ uint64_t hdl::waitfor(uint64_t duration)
             std::cerr << "  " << p->getname() << std::endl;
 #endif
 
-#ifdef _OPENMP
-#pragma omp single
-#endif
           wires2up.clear();
 
 #ifdef _OPENMP
@@ -95,9 +86,6 @@ uint64_t hdl::waitfor(uint64_t duration)
               procs2up[c]->update();
             }
 
-#ifdef _OPENMP
-#pragma omp single
-#endif
           {
             for(auto &p : procs2up)
               for(auto &w : p->children)
