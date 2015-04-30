@@ -7,22 +7,24 @@ using namespace hdl;
 
 int main()
 {
-  wire<std_logic> clk("clk", 0);
-  wire<std_logic> reset("reset", 0);
-  wire<std_logic> enable("enable", 1);
-  wire<int> out("out", 0);
-  
-  counter(clk, reset, enable, out);
+  wire<std_logic> clk(1);
+  wire<std_logic> reset(0);
+  const unsigned int bits = 32;
+  bus<std_logic, bits> out;
 
-  for(unsigned int c = 0; c < 20; c++)
+  counter(clk, reset, wire<std_logic>(1), out);
+  
+  for(unsigned int c = 0; c < 1000000; c++)
     {
-      clk = !clk;
+      clk = 0;
+      waitfor(1);
+      clk = 1;
       if(c < 10)
         reset = 0;
       else
         reset = 1;
       waitfor(1);
-      if(clk == 1)
+      if(reset == 1 && clk == 1)
         std::cout << out << std::endl;
     }
   

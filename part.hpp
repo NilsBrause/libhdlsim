@@ -15,8 +15,8 @@ namespace hdl
       void update();
       
     public:
-      part_int(std::list<std::shared_ptr<detail::wire_base> > inputs,
-               std::list<std::shared_ptr<detail::wire_base> > outputs,
+      part_int(std::list<std::list<std::shared_ptr<detail::wire_base> > > inputs,
+               std::list<std::list<std::shared_ptr<detail::wire_base> > > outputs,
                std::function<void()> logic,
                std::string name);
     };
@@ -27,8 +27,8 @@ namespace hdl
     std::shared_ptr<detail::part_int> p;
 
   public:
-    part(std::list<std::shared_ptr<detail::wire_base> > inputs,
-         std::list<std::shared_ptr<detail::wire_base> > outputs,
+    part(std::list<std::list<std::shared_ptr<detail::wire_base> > > inputs,
+         std::list<std::list<std::shared_ptr<detail::wire_base> > > outputs,
          std::function<void()> logic,
          std::string name = "unknown");
   };

@@ -14,7 +14,7 @@
 
 namespace hdl
 {
-  uint64_t waitfor(uint64_t duration = 0);
+  uint64_t waitfor(uint64_t duration);
 
   namespace detail
   {

@@ -1,6 +1,7 @@
 #ifndef WIRE_HPP
 #define WIRE_HPP
 
+#include <cassert>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -157,33 +158,18 @@ namespace hdl
     std::shared_ptr<detail::wire_int<T> > w;
 
   public:
-    wire(T initial)
-      : w(new detail::wire_int<T>("", initial))
-    {
-      detail::wires.push_back(w);
-    }
-
-    wire(std::string name)
-      : w(new detail::wire_int<T>(name, T()))
-    {
-      detail::wires.push_back(w);
-    }
-
-    wire(std::string name, T initial)
+    wire(T initial = T(), std::string name = "")
       : w(new detail::wire_int<T>(name, initial))
     {
       detail::wires.push_back(w);
     }
 
-    void replace(const wire<T> &w2)
+    bool event() const
     {
-      w = w2.w;
+      return w->event();
     }
 
-    operator T() const
-    {
-      return w->get();
-    }
+    // assignment operators
 
     void operator=(const T &t) const
     {
@@ -195,16 +181,23 @@ namespace hdl
       w->set((T)w2);
     }
 
-    bool event() const
+    // conversion operators
+
+    operator T() const
     {
-      return w->event();
+      return w->get();
     }
 
-    // conversion operators
-    
     operator std::shared_ptr<detail::wire_base>() const
     {
       return w;
+    }
+
+    operator std::list<std::shared_ptr<detail::wire_base>>() const
+    {
+      std::list<std::shared_ptr<detail::wire_base> > result;
+      result.push_back(w);
+      return result;
     }
 
     // unary operators
@@ -225,7 +218,7 @@ namespace hdl
 #define OPERATOR2(RET, OP)                   \
     RET operator OP(const wire<T> &w2) const \
     {                                        \
-      return w->get() OP (T)w2;              \
+      return w->get() OP w2;                 \
     }                                        \
                                              \
     RET operator OP(const T &t) const        \
@@ -253,7 +246,7 @@ namespace hdl
 #define OPERATOR3(OP)                             \
     wire<T> &operator OP(const wire<T> &w2) const \
     {                                             \
-      w->set(w->get() OP (T)w2);                  \
+      w->set(w->get() OP w2);                     \
       return *this;                               \
     }                                             \
                                                   \
@@ -278,13 +271,13 @@ namespace hdl
     template <typename U>                    \
     RET operator OP(const wire<U> &w2) const \
     {                                        \
-      return w->get() OP (U)w2;              \
+      return w->get() OP w2;                 \
     }                                        \
                                              \
     template <typename U>                    \
     RET operator OP(const U &t) const        \
     {                                        \
-      return w->get() OP (U)t;               \
+      return w->get() OP t;                  \
     }
 
     OPERATOR4(T, <<);
@@ -296,7 +289,7 @@ namespace hdl
     template <typename U>                         \
     wire<T> &operator OP(const wire<U> &w2) const \
     {                                             \
-      w->set(w->get() OP (U)w2);                  \
+      w->set(w->get() OP w2);                     \
       return *this;                               \
     }                                             \
                                                   \
@@ -311,10 +304,80 @@ namespace hdl
     OPERATOR5(>>=)
   };
 
-  template <typename T>
-  std::ostream& operator<<(std::ostream& lhs, wire<T> const& rhs)
+  template <typename T, unsigned int width>
+  class bus
   {
-    lhs << (T)rhs;
+  private:
+    std::array<wire<T>, width> wires;
+
+  public:
+    bus()
+    {
+    }
+
+    bus(std::initializer_list<T> initial)
+    {
+      assert(initial.size() == width);
+      unsigned int c = width-1;
+      for(auto &i : initial)
+        wires[c--] = i;
+    }
+
+    bus(std::array<T, width> initial)
+    {
+      unsigned int c = 0;
+      for(auto &i : initial)
+        wires[c++] = i;
+    }
+
+    const wire<T> &operator[](unsigned int n) const
+    {
+      return wires.at(n);
+    }
+
+    const wire<T> &at(unsigned int n) const
+    {
+      return wires.at(n);
+    }
+
+    // assignment operators
+
+    void operator=(const std::array<T, width> &b)
+    {
+      for(unsigned int c = 0; c < width; c++)
+        wires[c] = b[c];
+    }
+
+    void operator=(const bus<T, width> &b)
+    {
+      for(unsigned int c = 0; c < width; c++)
+        wires[c] = b[c];
+    }
+
+    // conversion operators
+
+    operator std::array<T, width>() const
+    {
+      std::array<T, width> result;
+      for(unsigned int c = 0; c < width; c++)
+        result[c] = wires[c];
+      return result;
+    }
+
+    operator std::list<std::shared_ptr<detail::wire_base>>() const
+    {
+      std::list<std::shared_ptr<detail::wire_base> > result;
+      for(auto &w: wires)
+        result.push_back(w);
+      return result;
+    }
+  };
+
+  template <typename T, unsigned int width>
+  std::ostream& operator<<(std::ostream& lhs, bus<T, width> const& rhs)
+  {
+    for(unsigned int c = 0; c < width; c++)
+      lhs << rhs[width-c-1];
     return lhs;
   }
 }
