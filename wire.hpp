@@ -50,6 +50,7 @@ namespace hdl
       std::map<part_base*, T> drivers;
 #else
       T next_state;
+      bool been_set;
       std::set<part_base*> drivers;
 #endif
       bool first;
@@ -67,8 +68,12 @@ namespace hdl
             next_state.clear();
           }
 #else
-        prev_state = state;
-        state = next_state;
+        if(been_set)
+          {
+            prev_state = state;
+            state = next_state;
+          }
+        been_set = false;
 #endif
         seen_event.clear();
       }
@@ -119,6 +124,7 @@ namespace hdl
         unlock();
 #endif
         next_state = t;
+        been_set = true;
 #endif
       }
       
