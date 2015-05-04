@@ -14,9 +14,6 @@ uint64_t hdl::waitfor(uint64_t duration)
       std::cerr << "Time: " << hdl::detail::cur_time << std::endl;
 #endif
 
-      wires2up.reserve(hdl::detail::wires.size());
-      procs2up.reserve(hdl::detail::parts.size());
-
       // initialze with wires that have been changed in the testbench
 #ifdef DEBUG
       std::cerr << "Scanning for wires." << std::endl;
@@ -73,8 +70,6 @@ uint64_t hdl::waitfor(uint64_t duration)
             std::cerr << "  " << p->getname() << std::endl;
 #endif
 
-          wires2up.clear();
-
 #ifdef _OPENMP
 #pragma omp for schedule(dynamic)
 #endif
@@ -86,27 +81,26 @@ uint64_t hdl::waitfor(uint64_t duration)
               procs2up[c]->update();
             }
 
-          {
-            for(auto &p : procs2up)
-              for(auto &w : p->children)
-                if(w->changed())
-                  {
-                    if(std::find(wires2up.begin(), wires2up.end(), w)
-                       == wires2up.end())
-                      {
+          wires2up.clear();
+          for(auto &p : procs2up)
+            for(auto &w : p->children)
+              if(w->changed())
+                {
+                  if(std::find(wires2up.begin(), wires2up.end(), w)
+                     == wires2up.end())
+                    {
 #ifdef DEBUG
-                        std::cerr << "Adding wire " << w->getname() << std::endl;
+                      std::cerr << "Adding wire " << w->getname() << std::endl;
 #endif
-                        wires2up.push_back(w);
-                      }
-                  }
-                else
-                  {
+                      wires2up.push_back(w);
+                    }
+                }
+              else
+                {
 #ifdef DEBUG
-                    std::cerr << "Wire " << w->getname() << " didn't change." << std::endl;
+                  std::cerr << "Wire " << w->getname() << " didn't change." << std::endl;
 #endif
-                  }
-          }
+                }
 #ifdef DEBUG
           std::cerr << std::endl;
 #endif
@@ -131,7 +125,7 @@ hdl::detail::root::root(std::string name)
 #endif
 }
 
-std::string hdl::detail::root::getname()
+std::string hdl::detail::root::getname() const
 {
   return myname;
 }

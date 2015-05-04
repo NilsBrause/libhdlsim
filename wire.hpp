@@ -25,8 +25,8 @@ namespace hdl
     // Resolve multiple assignments to a wire.
     // Has to be reimplemented by types with high-Z support.
     template <typename T>
-    T resolve(std::map<hdl::detail::part_base*, T> candidates,
-              hdl::detail::wire_base *w)
+    T resolve(const std::map<hdl::detail::part_base*, T> &candidates,
+              const hdl::detail::wire_base *w)
     {
       if(candidates.size() > 1)
         {
@@ -46,36 +46,37 @@ namespace hdl
       T state;
       T prev_state;
 #ifdef MULTIASSIGN
-      std::map<part_base*, T> next_state;
       std::map<part_base*, T> drivers;
 #else
       T next_state;
       bool been_set;
+#ifdef DEBUG
       std::set<part_base*> drivers;
 #endif
+#endif
       bool first;
-      std::set<part_base*> seen_event;
+      std::map<part_base*, bool> seen_event;
 
       virtual void update()
       {
 #ifdef MULTIASSIGN
-        if(next_state.size() > 0)
+        if(drivers.size() > 0)
           {
             prev_state = state;
-            for(auto &i : next_state)
-              drivers[i.first] = i.second;
             state = resolve(drivers, this);
-            next_state.clear();
+            for(auto &c : seen_event)
+              c.second = false;
           }
 #else
         if(been_set)
           {
             prev_state = state;
             state = next_state;
+            for(auto &c : seen_event)
+              c.second = false;
+            been_set = false;
           }
-        been_set = false;
 #endif
-        seen_event.clear();
       }
       
       bool changed()
@@ -83,13 +84,8 @@ namespace hdl
         if(!first)
           {
 #ifdef MULTIASSIGN
-            if(next_state.size() > 0)
-              {
-                std::map<part_base*, T> tmp = drivers;
-                for(auto &i : next_state)
-                  tmp[i.first] = i.second;
-                return resolve(tmp, this) != state;
-              }
+            if(drivers.size() > 0)
+              return resolve(drivers, this) != state;
             else
               return false;
 #else            
@@ -108,7 +104,7 @@ namespace hdl
 #ifdef MULTIASSIGN
         part_base *p = get_cur_part();
         lock();
-        next_state[p] = t;
+        drivers[p] = t;
         unlock();
 #else
 #ifdef DEBUG
@@ -137,9 +133,10 @@ namespace hdl
       {
         part_base *p = get_cur_part();
         lock();
-        bool not_seen = seen_event.insert(p).second;
+        bool seen = seen_event[p];
+        seen_event[p] = true;
         unlock();
-        return (prev_state != state) && not_seen;
+        return (prev_state != state) && !seen;
       }
 
       std::string print()

@@ -165,33 +165,35 @@ std::ostream& operator<<(std::ostream& os, const std_logic& rhs)
 }
 
 #ifdef MULTIASSIGN
-std_logic resolve(std::map<hdl::detail::part_base*, std_logic> candidates,
-                  hdl::detail::wire_base *w)
+std_logic resolve(const std::map<hdl::detail::part_base*, std_logic> &candidates,
+                  const hdl::detail::wire_base *w)
 {
-  std::vector<std_logic> nonhz;
+  std_logic result = 'Z';
+  unsigned int nonzcnt = 0;
   for(auto &i : candidates)
     if((char)i.second != 'Z')
-      nonhz.push_back(i.second);
-  switch(nonhz.size())
-    {
-    case 0:
-      return std_logic('Z');
-      break;
-    case 1:
-      return nonhz.front();
-      break;
-    default: // short circuit
-      std::cerr << "WARNING: wire " << w->getname()
-                << " has been updated by the following parts: ";
-      for(auto &i : candidates)
-        if(i.first)
-          std::cerr << i.first->getname() << " ";
+      {
+        nonzcnt++;
+        if(nonzcnt == 1)
+          result = i.second;
         else
-          std::cerr << "testbench ";
-      std::cerr << std::endl;
-      return std_logic('U');
-      break;
-    } 
+          {
+            std::cerr << "WARNING: wire " << w->getname()
+                      << " has been updated by the following parts: ";
+            for(auto &i : candidates)
+              {
+                if(i.first)
+                  std::cerr << i.first->getname() << " ";
+                else
+                  std::cerr << "testbench ";
+                std::cerr << "(" << i.second << ") ";
+              }
+            std::cerr << std::endl;
+            result = 'U';
+            break;
+          }
+      }
+  return result;
 }
 #endif
 

@@ -37,7 +37,7 @@ namespace hdl
 
     public:
       root(std::string name);
-      std::string getname();
+      std::string getname() const;
     };
       
     template <typename T>
