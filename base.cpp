@@ -6,6 +6,7 @@ uint64_t hdl::waitfor(uint64_t duration)
 {
   static std::vector<std::shared_ptr<hdl::detail::wire_base> > wires2up;
   static std::vector<std::shared_ptr<hdl::detail::part_base> > procs2up;
+  static bool first = true;
 
   hdl::detail::cur_time += duration;
   if(duration > 0)
@@ -19,9 +20,16 @@ uint64_t hdl::waitfor(uint64_t duration)
       std::cerr << "Scanning for wires." << std::endl;
 #endif
       wires2up.clear();
-      for(auto &w : hdl::detail::wires)
-        if(w->changed())
-          wires2up.push_back(w);
+      if(first)
+        {
+          for(auto &w : hdl::detail::wires)
+            wires2up.push_back(w);
+          first = false;
+        }
+      else
+        for(auto &w : hdl::detail::wires)
+          if(w->changed())
+            wires2up.push_back(w);
 
       // repeat as long as there are wires to be updated.
       while(wires2up.size() > 0)

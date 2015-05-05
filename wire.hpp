@@ -81,22 +81,14 @@ namespace hdl
       
       bool changed()
       {
-        if(!first)
-          {
 #ifdef MULTIASSIGN
-            if(drivers.size() > 0)
-              return resolve(drivers, this) != state;
-            else
-              return false;
-#else            
-            return (next_state != state);
-#endif
-          }
+        if(drivers.size() > 0)
+          return resolve(drivers, this) != state;
         else
-          {
-            first = false;
-            return true;
-          }
+          return false;
+#else            
+        return (next_state != state);
+#endif
       }
 
       void set(const T &t)
