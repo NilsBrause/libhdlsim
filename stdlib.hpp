@@ -2,6 +2,7 @@
 #define STDLIB_HPP
 
 #include <array>
+#include <type_traits>
 
 #include <wire.hpp>
 #include <part.hpp>
@@ -9,38 +10,9 @@
 
 namespace hdl
 {
-
-  template <typename T>
-  constexpr T power(T base, unsigned int exp)
+  constexpr unsigned int log2ceil(unsigned int x, unsigned int i = 0)
   {
-    return exp == 0 ? 1 : base * power(base, exp-1);
-  }
-
-  template <typename T>
-  constexpr unsigned int log2ceil(T x, unsigned int i = 0)
-  {
-    return power(2, i) >= x ? i : log2ceil(x, i+1);
-  }
-
-  template <typename T, unsigned int width, typename U>
-  std::array<T, width> int2bits(U value)
-  {
-    static_assert(width > 0, "width > 0");
-    static_assert(sizeof(U)*8 >= width, "");
-    std::array<T, width> result;
-    for(unsigned int c = 0; c < width; c++)
-      result[c] = power(2, c) & value ? 1 : 0;
-    return result;
-  }
-
-  template <typename U, typename T, unsigned int width>
-  U bits2int(std::array<T, width> data)
-  {
-    static_assert(width > 0, "width > 0");
-    U result = 0;
-    for(unsigned int c = 0; c < width; c++)
-      result |= data[c] ? power(2, c) : 0;
-    return result;
+    return detail::power(2u, i) >= x ? i : log2ceil(x, i+1);
   }
 
   //---------------------------------------------------------------------------
@@ -80,9 +52,10 @@ namespace hdl
          { dout },
          [=]
          {
-           if(reset == 0)
+           if(reset == static_cast<B>(0))
              dout = 0;
-           else if(clk.event() and clk == 1 and enable == 1)
+           else if(clk.event() and clk == static_cast<B>(1)
+                   and enable == static_cast<B>(1))
              dout = din;
          }, "reg");
   };
@@ -116,8 +89,18 @@ namespace hdl
               bus<T, bits> out)
   {
     static_assert(bits > 0, "bits > 0");
+#if 0
+    part({ in },
+         { out },
+         [=]
+         {
+           for(unsigned int c = 0; c < bits; c++)
+             out[c] = !in[c];
+         }, "invert");
+#else
     for(unsigned int c = 0; c < bits; c++)
       invert(in[c], out[c]);
+#endif
   }
 
   template <typename T, unsigned int bits>
@@ -149,7 +132,7 @@ namespace hdl
   {
     static_assert(bits > 0, "bits > 0");
     bus<T, bits> inv;
-    bus<T, bits> one = int2bits<T, bits>(1);
+    bus<T, bits> one = 1;
     invert(in, inv);
     add(inv, one, out, wire<T>(0), wire<T>());
   }
@@ -204,7 +187,7 @@ namespace hdl
                bus<T, bits> out)
   {
     static_assert(bits > 0, "bits > 0");
-    bus<T, bits> one = int2bits<T, bits>(1);
+    bus<T, bits> one = 1;
     integrator(clk, reset, enable, one, out);
   }
 
@@ -239,7 +222,8 @@ namespace hdl
            { out },
            [=]
            {
-             out = in;
+             for(unsigned int c = 0; c < in_bits; c++)
+               out[c] = in[c];
            }, "truncate");
   }    
 
@@ -251,7 +235,8 @@ namespace hdl
     truncate(in, out);
   }     
 
-  template <typename T, unsigned int in_bits, unsigned int out_bits, bool signed_arith = true>
+  template <bool signed_arith = true,
+            typename T, unsigned int in_bits, unsigned int out_bits>
   void extend(bus<T, in_bits> in,
               bus<T, out_bits> out)
   {
@@ -263,11 +248,15 @@ namespace hdl
            for(unsigned int c = 0; c < in_bits; c++)
              out[c] = in[c];
            for(unsigned int c = 0; c < out_bits-in_bits; c++)
-             out[in_bits+c] = signed_arith ? in[in_bits-1] : 0;
+             if(signed_arith)
+               out[in_bits+c] = in[in_bits-1];
+           else
+               out[in_bits+c] = 0;
          }, "extend");
   }
 
-  template <typename T, unsigned int bits, bool signed_arith = true>
+  template <bool signed_arith = true,
+            typename T, unsigned int bits>
   void barrel_shift(bus<T, bits> input,
                     bus<T, log2ceil(bits)> amount,
                     bus<T, bits> output)
@@ -276,7 +265,7 @@ namespace hdl
          { output },
          [=]
          {
-           int64_t a = bits2int<int64_t>(amount);
+           int64_t a = amount;
            if(a == 0)
              output = input;
            else if(a > 0)
@@ -291,24 +280,28 @@ namespace hdl
                for(unsigned int c = 0; c < bits-a; c++)
                  output[c] = input[a+c];
                for(unsigned int c = 0; c < a; c++)
-                 output[bits-c-1] = signed_arith ? input[bits-1] : 0;
+                 if(signed_arith)
+                   output[bits-c-1] = input[bits-1];
+                 else
+                   output[bits-c-1] = 0;
              }
          }, "barrel_shift");
   }
 
-  template <bool usep, bool usei, bool used, bool signed_arith, bool gains_first,
-            typename B, typename T, unsigned int bits, unsigned int int_bits>
+  template <bool usep, bool usei, bool used, unsigned int pre_gain, bool signed_arith = true,
+            typename B, typename T, unsigned int bits>
   void pidctl(wire<B> clk,
               wire<B> reset,
               wire<B> enable,
               bus<T, bits> input,
-              bus<T, log2ceil(int_bits)> pgain,
-              bus<T, log2ceil(int_bits)> igain,
-              bus<T, log2ceil(int_bits)> dgain,
+              bus<T, log2ceil(bits+pre_gain)> pgain,
+              bus<T, log2ceil(bits+pre_gain)> igain,
+              bus<T, log2ceil(bits+pre_gain)> dgain,
               bus<T, bits> output)
   {
     static_assert(bits > 1, "bits > 1");
-    static_assert(int_bits >= bits, "int_bits >= bits");
+
+    const unsigned int int_bits = bits+pre_gain;
     
     // pre-gain
     bus<T, int_bits> input2;
@@ -342,16 +335,15 @@ namespace hdl
     else if(usep && !usei && used)
       add(resultp, resultd, sum);
     else if(!usep && usei && used)
-      add(resulti, resultd);
+      add(resulti, resultd, sum);
     else if(usep && usei && used)
       {
         bus<T, int_bits> tmp;
         add(resultp, resulti, tmp);
-        ass(resultd, tmp, sum);
+        add(resultd, tmp, sum);
       }
-    
+    round(sum, output);
   }
-  
 }
 
 #endif

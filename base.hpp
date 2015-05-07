@@ -18,6 +18,24 @@ namespace hdl
 
   namespace detail
   {
+    // misc helpers
+    template <bool B, class T = void>
+    struct enable_if
+    {
+      typedef T type;
+    };
+
+    template <class T>
+    struct enable_if<false, T>
+    {
+    };
+
+    template <typename T>
+    constexpr T power(T base, unsigned int exp)
+    {
+      return exp == 0 ? 1 : base * power(base, exp-1);
+    }
+
     class part_base;
 
     class root
@@ -39,7 +57,7 @@ namespace hdl
       root(std::string name);
       std::string getname() const;
     };
-      
+
     template <typename T>
     class base : public root
     {

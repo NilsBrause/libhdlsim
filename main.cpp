@@ -10,11 +10,20 @@ int main()
   wire<std_logic> clk(1);
   wire<std_logic> reset(0);
   const unsigned int bits = 32;
-  bus<std_logic, bits> out;
+  const unsigned int pre_gain = 8;
+  bus<std_logic, bits> input = 42;
+  bus<std_logic, bits> output;
 
-  counter(clk, reset, wire<std_logic>(1), out);
+  pidctl<true, true, true, pre_gain>(clk,
+                                     reset,
+                                     wire<std_logic>(1),
+                                     input,
+                                     bus<std_logic, log2ceil(bits+pre_gain)>(1),
+                                     bus<std_logic, log2ceil(bits+pre_gain)>(1),
+                                     bus<std_logic, log2ceil(bits+pre_gain)>(1),
+                                     output);
   
-  for(unsigned int c = 0; c < 1000000; c++)
+  for(unsigned int c = 0; c < 100000; c++)
     {
       clk = 0;
       waitfor(1);
@@ -24,8 +33,7 @@ int main()
       else
         reset = 1;
       waitfor(1);
-      if(reset == 1 && clk == 1)
-        std::cout << out << std::endl;
+      std::cout << output << std::endl;
     }
   
   return 0;

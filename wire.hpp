@@ -10,10 +10,6 @@
 
 #include <base.hpp>
 
-#ifdef _OPENMP
-#include <omp.h>
-#endif
-
 namespace hdl
 {
   template<typename T>
@@ -303,6 +299,7 @@ namespace hdl
   class bus
   {
   private:
+    static_assert(width > 0, "width > 0");
     std::array<wire<T>, width> wires;
 
   public:
@@ -325,6 +322,12 @@ namespace hdl
         wires[c++] = i;
     }
 
+    template <typename U, typename detail::enable_if<std::is_integral<U>::value, int>::type dummy = 0>
+    bus(U initial)
+    {
+      operator=(initial);
+    }
+
     const wire<T> &operator[](unsigned int n) const
     {
       return wires.at(n);
@@ -337,16 +340,42 @@ namespace hdl
 
     // assignment operators
 
-    void operator=(const std::array<T, width> &b)
+    void operator=(const std::array<T, width> &b) const
     {
       for(unsigned int c = 0; c < width; c++)
         wires[c] = b[c];
     }
 
-    void operator=(const bus<T, width> &b)
+    void operator=(const bus<T, width> &b) const
     {
       for(unsigned int c = 0; c < width; c++)
         wires[c] = b[c];
+    }
+
+    template <typename U>
+    typename detail::enable_if<std::is_integral<U>::value>::type
+    operator=(const U value)
+    {
+      if(width >= sizeof(U)*8)
+        {
+          for(unsigned int c = 0; c < sizeof(U)*8; c++)
+            wires[c] = detail::power(2, c) & value ? 1 : 0;
+          if(width > sizeof(U)*8)
+            {
+              if(std::is_signed<U>::value)
+                for(unsigned int c = sizeof(U)*8; c < width; c++)
+                  wires[c] = detail::power(2, sizeof(U)*8-1) & value ? 1 : 0;
+              else
+                for(unsigned int c = sizeof(U)*8; c < width; c++)
+                  wires[c] = 0;
+            }
+        }
+      else
+        {
+          std::cerr << "WARNING: Bus width is to small for integer constant." << std::endl;
+          for(unsigned int c = 0; c < width; c++)
+            wires[c] = detail::power(2, c) & value ? 1 : 0;
+        }
     }
 
     // conversion operators
@@ -364,6 +393,15 @@ namespace hdl
       std::list<std::shared_ptr<detail::wire_base> > result;
       for(auto &w: wires)
         result.push_back(w);
+      return result;
+    }
+
+    template <typename U, typename detail::enable_if<std::is_integral<U>::value, int>::type dummy = 0>
+    operator U() const
+    {
+      U result = 0;
+      for(unsigned int c = 0; c < width; c++)
+        result |= wires[c] == static_cast<T>(1) ? detail::power(2, c) : 0;
       return result;
     }
   };
