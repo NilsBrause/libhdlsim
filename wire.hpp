@@ -354,7 +354,7 @@ namespace hdl
 
     template <typename U>
     typename detail::enable_if<std::is_integral<U>::value>::type
-    operator=(const U value)
+    operator=(const U value) const
     {
       if(width >= sizeof(U)*8)
         {
@@ -372,7 +372,9 @@ namespace hdl
         }
       else
         {
-          std::cerr << "WARNING: Bus width is to small for integer constant." << std::endl;
+#ifdef DEBUG
+          std::cerr << "WARNING: Bus width is to small for integer constant: " << std::endl;
+#endif
           for(unsigned int c = 0; c < width; c++)
             wires[c] = detail::power(2, c) & value ? 1 : 0;
         }
@@ -399,9 +401,20 @@ namespace hdl
     template <typename U, typename detail::enable_if<std::is_integral<U>::value, int>::type dummy = 0>
     operator U() const
     {
+      static_assert(sizeof(U)*8 >= width, "sizeof(U)*8 >= width");
       U result = 0;
-      for(unsigned int c = 0; c < width; c++)
-        result |= wires[c] == static_cast<T>(1) ? detail::power(2, c) : 0;
+      for(unsigned int c = 0; c < sizeof(U)*8; c++)
+        {
+          unsigned int d = sizeof(U)*8-c-1;
+          result <<= 1;
+          if(d >= width)
+            {
+              if(std::is_signed<U>::value)
+                result |= wires[width-1] == static_cast<T>(1) ? 1 : 0;
+            }
+          else
+            result |= wires[d] == static_cast<T>(1) ? 1 : 0;
+        }
       return result;
     }
   };
