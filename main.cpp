@@ -9,21 +9,14 @@ int main()
 {
   wire<std_logic> clk(1);
   wire<std_logic> reset(0);
-  const unsigned int bits = 32;
-  const unsigned int pre_gain = 8;
-  bus<std_logic, bits> input = 42;
-  bus<std_logic, bits> output;
+  const unsigned int freq_bits = 16;
+  const unsigned int bits = 16;
+  bus<std_logic, freq_bits> freq(1024);
+  bus<std_logic, bits> sine;
 
-  pidctl<true, true, true, pre_gain>(clk,
-                                     reset,
-                                     wire<std_logic>(1),
-                                     input,
-                                     bus<std_logic, log2ceil(bits+pre_gain)>(1),
-                                     bus<std_logic, log2ceil(bits+pre_gain)>(1),
-                                     bus<std_logic, log2ceil(bits+pre_gain)>(1),
-                                     output);
+  nco(clk, reset, wire<std_logic>(1), freq, bus<std_logic, freq_bits>(0), sine, bus<std_logic, bits>(), bus<std_logic, bits>());
   
-  for(unsigned int c = 0; c < 100000; c++)
+  for(unsigned int c = 0; c < 10000; c++)
     {
       clk = 0;
       waitfor(1);
@@ -33,7 +26,7 @@ int main()
       else
         reset = 1;
       waitfor(1);
-      std::cout << output << std::endl;
+      std::cout << c << " " << (int32_t)sine << std::endl;
     }
   
   return 0;

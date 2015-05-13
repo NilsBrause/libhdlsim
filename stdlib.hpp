@@ -344,6 +344,36 @@ namespace hdl
       }
     round(sum, output);
   }
+
+  template <typename T, unsigned int phase_bits, unsigned int bits>
+  void sincos(bus<T, phase_bits> phase, bus<T, bits> sin, bus<T, bits> cos)
+  {
+    part({ phase },
+         { sin, cos },
+         [=]
+         {
+           uint64_t iphase = phase;
+           long double dphase = static_cast<long double>(iphase)
+             /std::pow(2.l, phase_bits)*2.l*std::acos(-1.l);
+           long double dsin = std::sin(dphase);
+           long double dcos = std::cos(dphase);
+           int64_t isin = dsin*(std::pow(2.l, bits-1)-1);
+           int64_t icos = dcos*(std::pow(2.l, bits-1)-1);
+           sin = isin;
+           cos = icos;
+         });
+  }
+
+  template <typename B, typename T, unsigned int freq_bits, unsigned int bits>
+  void nco(wire<B> clk, wire<B> reset, wire<B> enable, bus<T, freq_bits> freq,
+           bus<T, freq_bits> mod, bus<T, bits> sine, bus<T, bits> cosine, bus<T, bits> saw)
+  {
+    bus<T, freq_bits> phase;
+    bus<T, freq_bits> phase2;
+    integrator(clk, reset, enable, freq, phase);
+    add(phase, mod, phase2);
+    sincos(phase2, sine, cosine);
+  }
 }
 
 #endif
