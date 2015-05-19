@@ -84,23 +84,82 @@ namespace hdl
          }, "invert");
   }
   
+  template <typename T>
+  void band(wire<T> in1,
+            wire<T> in2,
+            wire<T> out)
+  {
+    part({ in1, in2 },
+         { out },
+         [=]
+         {
+           out = in1 & in2;
+         }, "and1");
+  }
+
+  template <typename T>
+  void bor(wire<T> in1,
+           wire<T> in2,
+           wire<T> out)
+  {
+    part({ in1, in2 },
+         { out },
+         [=]
+         {
+           out = in1 | in2;
+         }, "or1");
+  }
+
+  template <typename T>
+  void bxor(wire<T> in1,
+            wire<T> in2,
+            wire<T> out)
+  {
+    part({ in1, in2 },
+         { out },
+         [=]
+         {
+           out = in1 ^ in2;
+         }, "xor1");
+  }
+
   template <typename T, unsigned int bits>
   void invert(bus<T, bits> in,
               bus<T, bits> out)
   {
     static_assert(bits > 0, "bits > 0");
-#if 0
-    part({ in },
-         { out },
-         [=]
-         {
-           for(unsigned int c = 0; c < bits; c++)
-             out[c] = !in[c];
-         }, "invert");
-#else
     for(unsigned int c = 0; c < bits; c++)
       invert(in[c], out[c]);
-#endif
+  }
+
+  template <typename T, unsigned int bits>
+  void band(bus<T, bits> in1,
+            bus<T, bits> in2,
+            bus<T, bits> out)
+  {
+    static_assert(bits > 0, "bits > 0");
+    for(unsigned int c = 0; c < bits; c++)
+      band(in1[c], in2[c], out[c]);
+  }
+
+  template <typename T, unsigned int bits>
+  void bor(bus<T, bits> in1,
+           bus<T, bits> in2,
+           bus<T, bits> out)
+  {
+    static_assert(bits > 0, "bits > 0");
+    for(unsigned int c = 0; c < bits; c++)
+      bor(in1[c], in2[c], out[c]);
+  }
+
+  template <typename T, unsigned int bits>
+  void bxor(bus<T, bits> in1,
+            bus<T, bits> in2,
+            bus<T, bits> out)
+  {
+    static_assert(bits > 0, "bits > 0");
+    for(unsigned int c = 0; c < bits; c++)
+      bxor(in1[c], in2[c], out[c]);
   }
 
   template <typename T, unsigned int bits>
@@ -152,43 +211,6 @@ namespace hdl
     add(in1, in2inv, out, carryin, carryout);
     invert(borrowin, carryin);
     invert(carryout, borrowout);
-  }
-
-  template <typename B, typename T, unsigned int bits>
-  void integrator(wire<B> clk,
-                  wire<B> reset,
-                  wire<B> enable,
-                  bus<T, bits> in,
-                  bus<T, bits> out)
-  {
-    static_assert(bits > 0, "bits > 0");
-    bus<T, bits> tmp;
-    add(out, in, tmp);
-    reg(clk, reset, enable, tmp, out);
-  }
-
-  template <typename B, typename T, unsigned int bits>
-  void differentiator(wire<B> clk,
-                      wire<B> reset,
-                      wire<B> enable,
-                      bus<T, bits> in,
-                      bus<T, bits> out)
-  {
-    static_assert(bits > 0, "bits > 0");
-    bus<T, bits> tmp;
-    reg(clk, reset, enable, in, tmp);
-    sub(in, tmp, out);
-  }
-    
-  template <typename B, typename T, unsigned int bits>
-  void counter(wire<B> clk,
-               wire<B> reset,
-               wire<B> enable,
-               bus<T, bits> out)
-  {
-    static_assert(bits > 0, "bits > 0");
-    bus<T, bits> one = 1;
-    integrator(clk, reset, enable, one, out);
   }
 
   template <typename T, unsigned int in_bits, unsigned int out_bits>
@@ -257,6 +279,39 @@ namespace hdl
 
   template <bool signed_arith = true,
             typename T, unsigned int bits>
+  void barrel_shift_fixed(bus<T, bits> input,
+                          int64_t amount,
+                          bus<T, bits> output)
+  {
+    part({ input },
+         { output },
+         [=]
+         {
+           int64_t a = amount;
+           if(a == 0)
+             output = input;
+           else if(a > 0)
+             {
+               for(unsigned int c = 0; c < a; c++)
+                 output[c] = 0;
+               for(unsigned int c = 0; c < bits-a; c++)
+                 output[a+c] = input[c];
+             }
+           else if(a < 0)
+             {
+               for(unsigned int c = 0; c < bits-a; c++)
+                 output[c] = input[a+c];
+               for(unsigned int c = 0; c < a; c++)
+                 if(signed_arith)
+                   output[bits-c-1] = input[bits-1];
+                 else
+                   output[bits-c-1] = 0;
+             }
+         }, "barrel_shift_fixed");
+  }
+
+  template <bool signed_arith = true,
+            typename T, unsigned int bits>
   void barrel_shift(bus<T, bits> input,
                     bus<T, log2ceil(bits)> amount,
                     bus<T, bits> output)
@@ -286,6 +341,81 @@ namespace hdl
                    output[bits-c-1] = 0;
              }
          }, "barrel_shift");
+  }
+
+  template <bool signed_arith = true, typename T, unsigned int bits>
+  void mul(bus<T, bits> in1,
+           bus<T, bits> in2,
+           bus<T, 2*bits> out)
+  {
+    // sign extend
+    bus<T, 2*bits> in1_extend;
+    extend<signed_arith>(in1, in1_extend);
+
+    // shift
+    std::array<bus<T, 2*bits>, bits> tmp;
+    for(unsigned int c = 0; c < bits; c++)
+      barrel_shift_fixed<signed_arith>(in1_extend, c, tmp[c]);
+
+    // and
+    std::array<bus<T, 2*bits>, bits> tmp2;
+    std::array<bus<T, 2*bits>, bits> sum;
+    for(unsigned int c = 0; c < bits; c++)
+      {
+        part({ tmp[c], in2[c] },
+             { tmp2[c] },
+             [=]
+             {
+               for(unsigned int d = 0; d < 2*bits; d++)
+                 tmp2[c][d] = tmp[c][d] & in2[c];
+             }, "mul_and");
+      }
+
+    // sum
+    assign(tmp[0], sum[0]);
+    for(unsigned int c = 0; c < bits-1; c++)
+      if(c < bits-2 || !signed_arith)
+        add(sum[c], tmp2[c+1], sum[c+1]);
+      else
+        sub(sum[c], tmp2[c+1], sum[c+1]);
+    assign(sum[bits-1], out);
+  }
+
+  template <typename B, typename T, unsigned int bits>
+  void integrator(wire<B> clk,
+                  wire<B> reset,
+                  wire<B> enable,
+                  bus<T, bits> in,
+                  bus<T, bits> out)
+  {
+    static_assert(bits > 0, "bits > 0");
+    bus<T, bits> tmp;
+    add(out, in, tmp);
+    reg(clk, reset, enable, tmp, out);
+  }
+
+  template <typename B, typename T, unsigned int bits>
+  void differentiator(wire<B> clk,
+                      wire<B> reset,
+                      wire<B> enable,
+                      bus<T, bits> in,
+                      bus<T, bits> out)
+  {
+    static_assert(bits > 0, "bits > 0");
+    bus<T, bits> tmp;
+    reg(clk, reset, enable, in, tmp);
+    sub(in, tmp, out);
+  }
+
+  template <typename B, typename T, unsigned int bits>
+  void counter(wire<B> clk,
+               wire<B> reset,
+               wire<B> enable,
+               bus<T, bits> out)
+  {
+    static_assert(bits > 0, "bits > 0");
+    bus<T, bits> one = 1;
+    integrator(clk, reset, enable, one, out);
   }
 
   template <bool usep, bool usei, bool used, unsigned int pre_gain, bool signed_arith = true,
@@ -346,7 +476,9 @@ namespace hdl
   }
 
   template <typename T, unsigned int phase_bits, unsigned int bits>
-  void sincos(bus<T, phase_bits> phase, bus<T, bits> sin, bus<T, bits> cos)
+  void sincos(bus<T, phase_bits> phase,
+              bus<T, bits> sin,
+              bus<T, bits> cos)
   {
     part({ phase },
          { sin, cos },
@@ -365,14 +497,21 @@ namespace hdl
   }
 
   template <typename B, typename T, unsigned int freq_bits, unsigned int bits>
-  void nco(wire<B> clk, wire<B> reset, wire<B> enable, bus<T, freq_bits> freq,
-           bus<T, freq_bits> mod, bus<T, bits> sine, bus<T, bits> cosine, bus<T, bits> saw)
+  void nco(wire<B> clk,
+           wire<B> reset,
+           wire<B> enable,
+           bus<T, freq_bits> freq,
+           bus<T, freq_bits> mod,
+           bus<T, bits> sine,
+           bus<T, bits> cosine,
+           bus<T, bits> saw)
   {
     bus<T, freq_bits> phase;
     bus<T, freq_bits> phase2;
     integrator(clk, reset, enable, freq, phase);
     add(phase, mod, phase2);
     sincos(phase2, sine, cosine);
+    truncate(phase2, saw);
   }
 }
 
