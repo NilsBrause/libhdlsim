@@ -513,6 +513,55 @@ namespace hdl
     sincos(phase2, sine, cosine);
     truncate(phase2, saw);
   }
+
+  template<unsigned int pre_gain,
+           typename B, typename T, unsigned int bits, unsigned int freq_bits>
+  void pll(wire<B> clk,
+           wire<B> reset,
+           wire<B> enable,
+           bus<T, bits> input,
+           bus<T, freq_bits> freq_start,
+           bus<T, log2ceil(bits+pre_gain)> pgain,
+           bus<T, log2ceil(bits+pre_gain)> igain,
+           bus<T, freq_bits> freq_out,
+           bus<T, bits> i,
+           bus<T, bits> q,
+           bus<T, bits> error)
+  {
+    bus<T, bits> sine;
+    bus<T, bits> cosine;
+    nco(clk,
+        reset,
+        enable,
+        freq_out,
+        bus<T, freq_bits>(0),
+        sine,
+        cosine,
+        bus<T, bits>());
+
+    bus<T, 2*bits> i2;
+    bus<T, 2*bits> q2;
+    mul<true>(input, sine, i2);
+    mul<true>(input, sine, q2);
+    truncate(i2, i);
+    truncate(q2, q);
+
+    bus<T, bits> pidout;
+    bus<T, freq_bits> pidout2;
+
+    pidctl<true, true, false, 16>(clk,
+                                  reset,
+                                  enable,
+                                  error,
+                                  pgain,
+                                  igain,
+                                  bus<T, log2ceil(bits+16)>(0),
+                                  pidout);
+
+    truncate(pidout, pidout2);
+
+    add(pidout2, freq_start, freq_out);
+  }
 }
 
 #endif
