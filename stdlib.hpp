@@ -18,6 +18,30 @@ namespace hdl
   //---------------------------------------------------------------------------
 
   template <typename T>
+  void print(wire<T> w, std::string name)
+  {
+    part({ w },
+         { },
+         [=]
+         {
+           std::cout << "[" << waitfor(0) << "] "
+                     << name << ": " << w << std::endl;
+         }, "print");
+  }
+  
+  template <typename T, unsigned int bits>
+  void print(bus<T, bits> b, std::string name)
+  {
+    part({ b },
+         { },
+         [=]
+         {
+           std::cout << "[" << waitfor(0) << "] "
+                     << name << ": " << b << std::endl;
+         }, "print");
+  }
+
+  template <typename T>
   void assign(wire<T> in,
               wire<T> out)
   {
