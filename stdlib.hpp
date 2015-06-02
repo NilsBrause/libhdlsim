@@ -690,6 +690,131 @@ namespace hdl
 
     add(pidout2, freq_start, freq_out);
   }
+
+  template<unsigned int n, unsigned int r, bool signed_arith = true,
+           typename B, typename T, unsigned int in_bits, unsigned int out_bits>
+  void cic_down(wire<B> clk,
+                wire<B> clk2,
+                wire<B> reset,
+                wire<B> enable,
+                bus<T, in_bits> input,
+                bus<T, out_bits> output)
+  {
+    const unsigned int bits2 = n*r + in_bits;
+    std::array<bus<T, bits2>, n+1> ints;
+    bus<T, out_bits> tmp;
+    std::array<bus<T, out_bits>, n+1> combs;
+
+    extend<signed_arith>(input, ints.at(0));
+
+    for(unsigned int c = 0; c < n; c++)
+      integrator(clk,
+                 reset,
+                 enable,
+                 ints.at(c),
+                 ints.at(c+1));
+
+    truncate(ints.at(n), tmp);
+
+    reg(clk2,
+        reset,
+        enable,
+        tmp,
+        combs.at(0));
+
+    for(unsigned int c = 0; c < n; c++)
+      differentiator(clk2,
+                     reset,
+                     enable,
+                     combs.at(c),
+                     combs.at(c+1));
+
+    round(combs.at(n), output);
+  }
+
+  template<unsigned int n, unsigned int r, bool signed_arith = true,
+           typename B, typename T, unsigned int in_bits, unsigned int out_bits>
+  void cic_up(wire<B> clk,
+              wire<B> clk2,
+              wire<B> reset,
+              wire<B> enable,
+              bus<T, in_bits> input,
+              bus<T, out_bits> output)
+  {
+    std::array<bus<T, in_bits>, n+1> combs;
+    const unsigned int bits2 = n*r + in_bits;
+    bus<T, bits2> tmp;
+    std::array<bus<T, bits2>, n+1> ints;
+
+    assign(input, combs.at(0));
+
+    for(unsigned int c = 0; c < n; c++)
+      differentiator(clk,
+                     reset,
+                     enable,
+                     combs.at(c),
+                     combs.at(c+1));
+
+    extend<signed_arith>(combs.at(n), tmp);
+
+    reg(clk2,
+        reset,
+        enable,
+        tmp,
+        ints.at(0));
+
+    for(unsigned int c = 0; c < n; c++)
+      integrator(clk2,
+                 reset,
+                 enable,
+                 ints.at(c),
+                 ints.at(c+1));
+
+    round(ints.at(n), output);
+  }
+
+  template<unsigned int bits,
+           typename T>
+  void pwm(wire<T> clk,
+           wire<T> reset,
+           wire<T> enable,
+           bus<T, log2ceil(bits)> ratio,
+           wire<T> output)
+  {
+    bus<T, log2ceil(bits)> cnt_out;
+    wire<T> cnt_rst;
+
+    counter(clk,
+            reset,
+            enable,
+            cnt_out);
+
+    wire<T> equal;
+    compare(cnt_out,
+            bus<T, log2ceil(bits)>(bits),
+            equal);
+
+    wire<T> nreset;
+    invert(reset, nreset);
+    bnor(equal, nreset, cnt_rst);
+
+    compare<false>(cnt_out, ratio, wire<T>(), output);
+  }
+
+  template<unsigned int div,
+           typename B>
+  void clkdiv(wire<B> clk,
+              wire<B> reset,
+              wire<B> enable,
+              wire<B> clk_out)
+  {
+    bus<B, log2ceil(div)> ratio(div/2);
+    pwm<div>(clk,
+             reset,
+             enable,
+             ratio,
+             clk_out);
+  }
 }
 
 #endif
