@@ -135,7 +135,11 @@ namespace hdl
       }
       
       wire_int(std::string name, T initial)
-        : wire_base(name), state(initial), prev_state(initial), first(true)
+        : wire_base(name), state(initial), prev_state(initial),
+#ifndef MULTIASSIGN
+          been_set(false),
+#endif
+          first(true)
       {
       }
       
