@@ -285,7 +285,7 @@ namespace hdl
            bus<T, bits> in2,
            bus<T, bits> out,
            wire<T> borrowin = wire<T>(0),
-           wire<T> borrowout = wire<T>(0))
+           wire<T> borrowout = wire<T>())
   {
     static_assert(bits > 0, "bits > 0");
     bus<T, bits> in2inv;
@@ -295,6 +295,49 @@ namespace hdl
     add(in1, in2inv, out, carryin, carryout);
     invert(borrowin, carryin);
     invert(carryout, borrowout);
+  }
+
+  template <bool signed_arith = true,
+            typename B, typename T, unsigned int bits>
+  void compare(bus<T, bits> in1,
+               bus<T, bits> in2,
+               wire<B> equal,
+               wire<B> smaller = wire<B>(),
+               wire<B> greater = wire<B>(),
+               wire<B> unequal = wire<B>(),
+               wire<B> smallerequal = wire<B>(),
+               wire<B> greaterequal = wire<B>())
+  {
+    bus<T, bits> diff;
+    wire<T> borrow;
+    sub(in1, in2, diff, wire<T>(0), borrow);
+
+    part({ diff, borrow },
+         { equal, smaller },
+         [=]
+         {
+           bool all_zero = true;
+           for(unsigned int c = 0; c < bits; c++)
+             if(diff.at(c) != 0)
+               {
+                 all_zero = false;
+                 break;
+               }
+           if(all_zero)
+             equal = 1;
+           else
+             equal = 0;
+
+           if(signed_arith)
+             smaller = diff.at(bits-1);
+           else
+             smaller = borrow; // ?
+         }, "compare");
+
+    invert(equal, unequal);
+    bor(equal, smaller, smallerequal);
+    invert(smallerequal, greater);
+    invert(smaller, greaterequal);
   }
 
   template <typename T, unsigned int in_bits, unsigned int out_bits>
