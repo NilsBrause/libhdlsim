@@ -122,6 +122,16 @@ namespace hdl
   }
 
   template <typename T>
+  void bnand(wire<T> in1,
+             wire<T> in2,
+             wire<T> out)
+  {
+    wire<T> tmp;
+    band(in1, in2, tmp);
+    invert(tmp, out);
+  }
+
+  template <typename T>
   void bor(wire<T> in1,
            wire<T> in2,
            wire<T> out)
@@ -135,6 +145,16 @@ namespace hdl
   }
 
   template <typename T>
+  void bnor(wire<T> in1,
+            wire<T> in2,
+            wire<T> out)
+  {
+    wire<T> tmp;
+    bor(in1, in2, tmp);
+    invert(tmp, out);
+  }
+
+  template <typename T>
   void bxor(wire<T> in1,
             wire<T> in2,
             wire<T> out)
@@ -145,6 +165,16 @@ namespace hdl
          {
            out = in1 ^ in2;
          }, "xor1");
+  }
+
+  template <typename T>
+  void bxnor(wire<T> in1,
+             wire<T> in2,
+             wire<T> out)
+  {
+    wire<T> tmp;
+    bxor(in1, in2, tmp);
+    invert(tmp, out);
   }
 
   template <typename T, unsigned int bits>
@@ -167,6 +197,16 @@ namespace hdl
   }
 
   template <typename T, unsigned int bits>
+  void bnand(bus<T, bits> in1,
+             bus<T, bits> in2,
+             bus<T, bits> out)
+  {
+    bus<T, bits> tmp;
+    band(in1, in2, tmp);
+    invert(tmp, out);
+  }
+
+  template <typename T, unsigned int bits>
   void bor(bus<T, bits> in1,
            bus<T, bits> in2,
            bus<T, bits> out)
@@ -177,6 +217,16 @@ namespace hdl
   }
 
   template <typename T, unsigned int bits>
+  void bnor(bus<T, bits> in1,
+            bus<T, bits> in2,
+            bus<T, bits> out)
+  {
+    bus<T, bits> tmp;
+    bor(in1, in2, tmp);
+    invert(tmp, out);
+  }
+
+  template <typename T, unsigned int bits>
   void bxor(bus<T, bits> in1,
             bus<T, bits> in2,
             bus<T, bits> out)
@@ -184,6 +234,16 @@ namespace hdl
     static_assert(bits > 0, "bits > 0");
     for(unsigned int c = 0; c < bits; c++)
       bxor(in1[c], in2[c], out[c]);
+  }
+
+  template <typename T, unsigned int bits>
+  void bxnor(bus<T, bits> in1,
+             bus<T, bits> in2,
+             bus<T, bits> out)
+  {
+    bus<T, bits> tmp;
+    bxor(in1, in2, tmp);
+    invert(tmp, out);
   }
 
   template <typename T, unsigned int bits>
