@@ -12,7 +12,7 @@ namespace hdl
 {
   constexpr unsigned int log2ceil(unsigned int x, unsigned int i = 0)
   {
-    return detail::power(2u, i) >= x ? i : log2ceil(x, i+1);
+    return power(2u, i) >= x ? i : log2ceil(x, i+1);
   }
 
   //---------------------------------------------------------------------------

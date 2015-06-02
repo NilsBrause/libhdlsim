@@ -16,6 +16,12 @@ namespace hdl
 {
   uint64_t waitfor(uint64_t duration);
 
+  template <typename T>
+  constexpr T power(T base, unsigned int exp)
+  {
+    return exp == 0 ? 1 : base * power(base, exp-1);
+  }
+
   namespace detail
   {
     // misc helpers
@@ -29,12 +35,6 @@ namespace hdl
     struct enable_if<false, T>
     {
     };
-
-    template <typename T>
-    constexpr T power(T base, unsigned int exp)
-    {
-      return exp == 0 ? 1 : base * power(base, exp-1);
-    }
 
     class part_base;
 

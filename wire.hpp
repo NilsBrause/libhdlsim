@@ -359,12 +359,12 @@ namespace hdl
       if(width >= sizeof(U)*8)
         {
           for(unsigned int c = 0; c < sizeof(U)*8; c++)
-            wires[c] = detail::power(2, c) & value ? 1 : 0;
+            wires[c] = power(2, c) & value ? 1 : 0;
           if(width > sizeof(U)*8)
             {
               if(std::is_signed<U>::value)
                 for(unsigned int c = sizeof(U)*8; c < width; c++)
-                  wires[c] = detail::power(2, sizeof(U)*8-1) & value ? 1 : 0;
+                  wires[c] = power(2, sizeof(U)*8-1) & value ? 1 : 0;
               else
                 for(unsigned int c = sizeof(U)*8; c < width; c++)
                   wires[c] = 0;
@@ -376,7 +376,7 @@ namespace hdl
           std::cerr << "WARNING: Bus width is to small for integer constant: " << std::endl;
 #endif
           for(unsigned int c = 0; c < width; c++)
-            wires[c] = detail::power(2, c) & value ? 1 : 0;
+            wires[c] = power(2, c) & value ? 1 : 0;
         }
     }
 
