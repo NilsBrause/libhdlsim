@@ -9,6 +9,7 @@ env.Append(CCFLAGS = [
     "-Wall",
     "-Werror",
     "-std=c++11",
+    "-pedantic",
     "-O2",
 #    "-fno-inline",
     "-pthread",

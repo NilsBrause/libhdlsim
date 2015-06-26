@@ -82,7 +82,7 @@ namespace hdl
                    and enable == static_cast<B>(1))
              dout = din;
          }, "reg");
-  };
+  }
 
   template <typename B, typename T, unsigned int bits>
   void reg(wire<B> clk,
@@ -94,7 +94,7 @@ namespace hdl
     static_assert(bits > 0, "bits > 0");
     for(unsigned int c = 0; c < bits; c++)
       reg(clk, reset, enable, din[c], dout[c]);
-  };
+  }
 
   template <typename T>
   void invert(wire<T> in,

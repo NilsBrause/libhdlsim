@@ -251,14 +251,14 @@ namespace hdl
       return *this;                               \
     }
 
-    OPERATOR3(&=);
-    OPERATOR3(|=);
-    OPERATOR3(^=);
-    OPERATOR3(+=);
-    OPERATOR3(-=);
-    OPERATOR3(*=);
-    OPERATOR3(/=);
-    OPERATOR3(%=);
+    OPERATOR3(&=)
+    OPERATOR3(|=)
+    OPERATOR3(^=)
+    OPERATOR3(+=)
+    OPERATOR3(-=)
+    OPERATOR3(*=)
+    OPERATOR3(/=)
+    OPERATOR3(%=)
 
     // two-type binary operators
 
@@ -275,8 +275,8 @@ namespace hdl
       return w->get() OP t;                  \
     }
 
-    OPERATOR4(T, <<);
-    OPERATOR4(T, >>);
+    OPERATOR4(T, <<)
+    OPERATOR4(T, >>)
 
     // modifying two-type binary operators
 
