@@ -460,6 +460,7 @@ namespace hdl
              }
            else if(a < 0)
              {
+               a = -a;
                for(unsigned int c = 0; c < bits-a; c++)
                  output[c] = input[a+c];
                for(unsigned int c = 0; c < a; c++)
