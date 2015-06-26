@@ -547,39 +547,35 @@ namespace hdl
     integrator(clk, reset, enable, one, out);
   }
 
-  template <bool usep, bool usei, bool used, unsigned int pre_gain, bool signed_arith = true,
+  template <bool usep, bool usei, bool used, int pre_gain, unsigned int int_bits, bool signed_arith = true,
             typename B, typename T, unsigned int bits>
   void pidctl(wire<B> clk,
               wire<B> reset,
               wire<B> enable,
               bus<T, bits> input,
-              bus<T, log2ceil(bits+pre_gain)> pgain,
-              bus<T, log2ceil(bits+pre_gain)> igain,
-              bus<T, log2ceil(bits+pre_gain)> dgain,
+              bus<T, log2ceil(int_bits)> pgain,
+              bus<T, log2ceil(int_bits)> igain,
+              bus<T, log2ceil(int_bits)> dgain,
               bus<T, bits> output)
   {
     static_assert(bits > 1, "bits > 1");
-
-    const unsigned int int_bits = bits+pre_gain;
     
     // pre-gain
-    bus<T, int_bits> input2;
-    extend(input, input2);
+    bus<T, int_bits> input2, input3;
+    truncate(input, input3);
+    barrel_shift_fixed(input3, pre_gain, input2);
 
-    // proportional
-    bus<T, int_bits> input_reg, resultp;
-    reg(clk, reset, enable, input2, input_reg);
-    barrel_shift(input_reg, pgain, resultp);
+    // gains
+    bus<T, int_bits> input2p, input2i, input2d;
+    barrel_shift(input2, pgain, input2p);
+    barrel_shift(input2, igain, input2i);
+    barrel_shift(input2, dgain, input2d);
 
-    // integral
-    bus<T, int_bits> input_int, resulti;
-    integrator(clk, reset, enable, input2, input_int);
-    barrel_shift(input_int, igain, resulti);
-
-    // differential
-    bus<T, int_bits> input_dif, resultd;
-    differentiator(clk, reset, enable, input2, input_dif);
-    barrel_shift(input_dif, dgain, resultd);
+    // controller
+    bus<T, int_bits> resultp, resulti, resultd;
+    reg(clk, reset, enable, input2p, resultp);            // P
+    integrator(clk, reset, enable, input2i, resulti);     // I
+    differentiator(clk, reset, enable, input2d, resultd); // D
 
     bus<T, int_bits> sum;
     // add
@@ -643,15 +639,15 @@ namespace hdl
     truncate(phase2, saw);
   }
 
-  template<unsigned int pre_gain,
+  template<int pre_gain, unsigned int int_bits,
            typename B, typename T, unsigned int bits, unsigned int freq_bits>
   void pll(wire<B> clk,
            wire<B> reset,
            wire<B> enable,
            bus<T, bits> input,
            bus<T, freq_bits> freq_start,
-           bus<T, log2ceil(bits+pre_gain)> pgain,
-           bus<T, log2ceil(bits+pre_gain)> igain,
+           bus<T, log2ceil(int_bits)> pgain,
+           bus<T, log2ceil(int_bits)> igain,
            bus<T, freq_bits> freq_out,
            bus<T, bits> i,
            bus<T, bits> q,
@@ -668,24 +664,25 @@ namespace hdl
         cosine,
         bus<T, bits>());
 
-    bus<T, 2*bits> i2;
-    bus<T, 2*bits> q2;
+    bus<T, int_bits> i2;
+    bus<T, int_bits> q2;
     mul<true>(input, sine, i2);
-    mul<true>(input, sine, q2);
+    mul<true>(input, cosine, q2);
     truncate(i2, i);
     truncate(q2, q);
 
     bus<T, bits> pidout;
     bus<T, freq_bits> pidout2;
 
-    pidctl<true, true, false, 16>(clk,
-                                  reset,
-                                  enable,
-                                  error,
-                                  pgain,
-                                  igain,
-                                  bus<T, log2ceil(bits+16)>(0),
-                                  pidout);
+    pidctl<true, true, false,
+           pre_gain, int_bits>(clk,
+                               reset,
+                               enable,
+                               error,
+                               pgain,
+                               igain,
+                               bus<T, log2ceil(int_bits)>(0),
+                               pidout);
 
     truncate(pidout, pidout2);
 
