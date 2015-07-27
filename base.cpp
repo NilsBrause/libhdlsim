@@ -60,14 +60,16 @@ uint64_t hdl::waitfor(uint64_t duration)
             procs2up.clear();
             for(auto &w : wires2up)
               for(auto &p : w->children)
-                if(std::find(procs2up.begin(), procs2up.end(), p)
-                   == procs2up.end())
-                  {
+                {
 #ifdef DEBUG
-                    std::cerr << "Adding part " << p->getname() << std::endl;
+                  std::cerr << "Adding part " << p->getname() << std::endl;
 #endif
-                    procs2up.push_back(p);
-                  }
+                  procs2up.push_back(p);
+                }
+            // sort & unique afterwards is actually faster
+            std::sort(procs2up.begin(), procs2up.end());
+            auto last = std::unique(procs2up.begin(), procs2up.end());
+            procs2up.erase(last, procs2up.end());
           }
 
           // update parts and collect all connected wires
@@ -89,29 +91,23 @@ uint64_t hdl::waitfor(uint64_t duration)
               procs2up[c]->update();
             }
 
+#ifdef DEBUG
+            std::cerr << "Scanning for wires." << std::endl;
+#endif
           wires2up.clear();
           for(auto &p : procs2up)
             for(auto &w : p->children)
               if(w->changed())
                 {
-                  if(std::find(wires2up.begin(), wires2up.end(), w)
-                     == wires2up.end())
-                    {
 #ifdef DEBUG
-                      std::cerr << "Adding wire " << w->getname() << std::endl;
+                  std::cerr << "Adding wire " << w->getname() << std::endl;
 #endif
-                      wires2up.push_back(w);
-                    }
+                  wires2up.push_back(w);
                 }
-              else
-                {
-#ifdef DEBUG
-                  std::cerr << "Wire " << w->getname() << " didn't change." << std::endl;
-#endif
-                }
-#ifdef DEBUG
-          std::cerr << std::endl;
-#endif
+          // sort & unique afterwards is actually faster
+          std::sort(wires2up.begin(), wires2up.end());
+          auto last = std::unique(wires2up.begin(), wires2up.end());
+          wires2up.erase(last, wires2up.end());
         }
     }
   return hdl::detail::cur_time;
