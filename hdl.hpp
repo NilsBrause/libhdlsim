@@ -6,5 +6,6 @@
 #include <part.hpp>
 #include <stdlib.hpp>
 #include <std_logic.hpp>
+#include <simulator.hpp>
 
 #endif

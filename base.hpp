@@ -14,13 +14,13 @@
 
 namespace hdl
 {
-  uint64_t waitfor(uint64_t duration);
-
   template <typename T>
   constexpr T power(T base, unsigned int exp)
   {
     return exp == 0 ? 1 : base * power(base, exp-1);
   }
+
+  class simulator;
 
   namespace detail
   {
@@ -64,7 +64,8 @@ namespace hdl
       std::list<std::shared_ptr<T> > parents;
       std::list<std::shared_ptr<T> > children;
 
-      virtual void update() = 0;
+      virtual void update(uint64_t time) = 0;
+      friend class hdl::simulator;
 
       base(std::string name)
         : root(name)
@@ -83,8 +84,6 @@ namespace hdl
         if(std::find(parents.begin(), parents.end(), parent) == parents.end())
           parents.push_back(parent);
       }
-      
-      friend uint64_t hdl::waitfor(uint64_t duration);
     };
     
     class wire_base;
@@ -101,7 +100,7 @@ namespace hdl
     {
     private:
       virtual bool changed() = 0;
-      friend uint64_t hdl::waitfor(uint64_t duration);
+      friend class hdl::simulator;
 
     protected:
       std::string id;
@@ -114,7 +113,6 @@ namespace hdl
       friend class hdl::detail::part_int;
     };
 
-    extern uint64_t cur_time;
     extern std::list<std::shared_ptr<wire_base> > wires;
     extern std::list<std::shared_ptr<part_base> > parts;
   }

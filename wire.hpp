@@ -53,7 +53,7 @@ namespace hdl
       bool first;
       std::map<part_base*, bool> seen_event;
 
-      virtual void update()
+      virtual void update(uint64_t)
       {
 #ifdef MULTIASSIGN
         if(drivers.size() > 0)

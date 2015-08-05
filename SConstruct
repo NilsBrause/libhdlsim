@@ -21,7 +21,8 @@ env.Append(LINKFLAGS = [
     
 env.SharedLibrary(target = 'hdl',
                   source = ["base.cpp",
-                            "part.cpp"])
+                            "part.cpp",
+                            "simulator.cpp"])
 
 env.Program(target = 'example',
             source = 'example.cpp',

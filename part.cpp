@@ -4,7 +4,7 @@ using namespace hdl;
 
 detail::part_int::part_int(std::list<std::list<std::shared_ptr<detail::wire_base> > > inputs,
                            std::list<std::list<std::shared_ptr<detail::wire_base> > > outputs,
-                           std::function<void()> logic,
+                           std::function<void(uint64_t)> logic,
                            std::string name)
   : part_base(name), logic(logic)
 {
@@ -16,16 +16,16 @@ detail::part_int::part_int(std::list<std::list<std::shared_ptr<detail::wire_base
       add_parent(w);
 }
 
-void detail::part_int::update()
+void detail::part_int::update(uint64_t time)
 {
   set_cur_part(this);
-  logic();
+  logic(time);
   set_cur_part(NULL);
 }
 
 part::part(std::list<std::list<std::shared_ptr<detail::wire_base> > > inputs,
            std::list<std::list<std::shared_ptr<detail::wire_base> > > outputs,
-           std::function<void()> logic,
+           std::function<void(uint64_t)> logic,
            std::string name)
   : p(new detail::part_int(inputs, outputs, logic, name))
 {

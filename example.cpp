@@ -18,23 +18,32 @@ int main()
   add(count, one, tmp);
   reg(clk, reset, wire<std_logic>(1), tmp, count);
 
-  for(unsigned int c = 0; c < 100; c++)
-    {
-      clk = 0;
-      waitfor(1);
-      clk = 1;
+  print(clk, "clk");
+  print(reset, "reset");
+  print(count, "count");
 
-      if(c < 10)
-        reset = 0;
-      else
-        reset = 1;
+  part testbench = part({ },
+                        { clk, reset },
+                        [=] (uint64_t time)
+                        {
+                          switch(time % 2)
+                            {
+                            case 0:
+                              clk = 0;
+                              break;
+                            case 1:
+                              clk = 1;
+                              break;
+                            }
 
-      waitfor(1);
+                          if(time < 10)
+                            reset = 0;
+                          else
+                            reset = 1;
+                        });
 
-      std::cout << clk << " " << reset << " "
-                << static_cast<int16_t>(count) << " "
-                << std::endl;
-    }
+  simulator sim(testbench);
+  sim.run(100);
   
   return 0;
 }

@@ -22,9 +22,9 @@ namespace hdl
   {
     part({ w },
          { },
-         [=]
+         [=] (uint64_t time)
          {
-           std::cout << "[" << waitfor(0) << "] "
+           std::cout << "[" << time << "] "
                      << name << ": " << w << std::endl;
          }, "print");
   }
@@ -34,9 +34,9 @@ namespace hdl
   {
     part({ b },
          { },
-         [=]
+         [=] (uint64_t time)
          {
-           std::cout << "[" << waitfor(0) << "] "
+           std::cout << "[" << time << "] "
                      << name << ": " << b << std::endl;
          }, "print");
   }
@@ -47,7 +47,7 @@ namespace hdl
   {
     part({ in },
          { out },
-         [=]
+         [=] (uint64_t)
          {
            out = in;
          }, "assign");
@@ -59,7 +59,7 @@ namespace hdl
   {
     part({ in },
          { out },
-         [=]
+         [=] (uint64_t)
          {
            out = in;
          }, "assign");
@@ -74,7 +74,7 @@ namespace hdl
   {
     part({ clk, reset, enable, din },
          { dout },
-         [=]
+         [=] (uint64_t)
          {
            if(reset == static_cast<B>(0))
              dout = 0;
@@ -102,7 +102,7 @@ namespace hdl
   {
     part({ in },
          { out },
-         [=]
+         [=] (uint64_t)
          {
            out = !in;
          }, "invert");
@@ -115,7 +115,7 @@ namespace hdl
   {
     part({ in1, in2 },
          { out },
-         [=]
+         [=] (uint64_t)
          {
            out = in1 & in2;
          }, "and1");
@@ -138,7 +138,7 @@ namespace hdl
   {
     part({ in1, in2 },
          { out },
-         [=]
+         [=] (uint64_t)
          {
            out = in1 | in2;
          }, "or1");
@@ -161,7 +161,7 @@ namespace hdl
   {
     part({ in1, in2 },
          { out },
-         [=]
+         [=] (uint64_t)
          {
            out = in1 ^ in2;
          }, "xor1");
@@ -256,7 +256,7 @@ namespace hdl
     static_assert(bits > 0, "bits > 0");
     part({ in1, in2, carryin },
          { out, carryout },
-         [=]
+         [=] (uint64_t)
          {
            T carry = carryin;
            for(unsigned int c = 0; c < bits; c++)
@@ -314,7 +314,7 @@ namespace hdl
 
     part({ diff, borrow },
          { equal, smaller },
-         [=]
+         [=] (uint64_t)
          {
            bool all_zero = true;
            for(unsigned int c = 0; c < bits; c++)
@@ -350,7 +350,7 @@ namespace hdl
       {
         part({ in },
              { out },
-             [=]
+             [=] (uint64_t)
              {
                for(unsigned int c = 0; c < out_bits; c++)
                  out[out_bits-c-1] = in[in_bits-c-1];
@@ -359,7 +359,7 @@ namespace hdl
     else if(out_bits > in_bits)
       part({ in },
            { out },
-           [=]
+           [=] (uint64_t)
            {
              for(unsigned int c = 0; c < in_bits; c++)
                out[out_bits-c-1] = in[in_bits-c-1];
@@ -369,7 +369,7 @@ namespace hdl
     else
       part({ in },
            { out },
-           [=]
+           [=] (uint64_t)
            {
              for(unsigned int c = 0; c < in_bits; c++)
                out[c] = in[c];
@@ -392,7 +392,7 @@ namespace hdl
     static_assert(out_bits >= in_bits, "");
     part({ in },
          { out },
-         [=]
+         [=] (uint64_t)
          {
            for(unsigned int c = 0; c < in_bits; c++)
              out[c] = in[c];
@@ -412,7 +412,7 @@ namespace hdl
   {
     part({ input },
          { output },
-         [=]
+         [=] (uint64_t)
          {
            int64_t a = amount;
            if(a == 0)
@@ -446,7 +446,7 @@ namespace hdl
   {
     part({ input, amount },
          { output },
-         [=]
+         [=] (uint64_t)
          {
            int64_t a = amount;
            if(a == 0)
@@ -493,7 +493,7 @@ namespace hdl
       {
         part({ tmp[c], in2[c] },
              { tmp2[c] },
-             [=]
+             [=] (uint64_t)
              {
                for(unsigned int d = 0; d < 2*bits; d++)
                  tmp2[c][d] = tmp[c][d] & in2[c];
@@ -607,7 +607,7 @@ namespace hdl
   {
     part({ phase },
          { sin, cos },
-         [=]
+         [=] (uint64_t)
          {
            uint64_t iphase = phase;
            long double dphase = static_cast<long double>(iphase)
