@@ -8,9 +8,9 @@
 #include <vector>
 #include <algorithm>
 #include <sstream>
-#ifdef _OPENMP
-#include <omp.h>
-#endif
+#include <unordered_map>
+#include <thread>
+#include <mutex>
 
 namespace hdl
 {
@@ -42,10 +42,9 @@ namespace hdl
     {
     private:
       std::string myname;
-#ifdef _OPENMP
-      static omp_nest_lock_t omp_lock;
-#endif
-      static std::vector<part_base*> cur_part;
+
+      static std::mutex mutex;
+      static std::unordered_map<std::thread::id, part_base*> cur_part;
 
     protected:
       void set_cur_part(part_base *the_part);
