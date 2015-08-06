@@ -5,8 +5,6 @@
 
 using namespace hdl;
 
-#define PRINT(wire) { wire.setname(#wire); print(wire); }
-
 int main()
 {
   const unsigned int bits = 9;
@@ -20,9 +18,15 @@ int main()
   add(count, one, tmp);
   reg(clk, reset, wire<std_logic>(1), tmp, count);
 
-  PRINT(clk);
-  PRINT(reset);
-  PRINT(count);
+  print(clk);
+  print(reset);
+  print(count);
+
+  clk.setname("clk");
+  reset.setname("reset");
+  one.setname("one");
+  tmp.setname("tmp");
+  count.setname("count");
 
   part testbench = part({ },
                         { clk, reset },

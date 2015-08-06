@@ -251,7 +251,7 @@ namespace hdl
            bus<T, bits> in2,
            bus<T, bits> out,
            wire<T> carryin = wire<T>(0),
-           wire<T> carryout = wire<T>(0))
+           wire<T> carryout = wire<T>())
   {
     static_assert(bits > 0, "bits > 0");
     part({ in1, in2, carryin },

@@ -22,8 +22,8 @@ namespace hdl
     // Resolve multiple assignments to a wire.
     // Has to be reimplemented by types with high-Z support.
     template <typename T>
-    T resolve(const std::map<hdl::detail::base*, T> &candidates,
-              const hdl::detail::base *w)
+    T resolve(const std::map<detail::base*, T> &candidates,
+              const detail::base *w)
     {
       if(candidates.size() > 1)
         {
@@ -35,9 +35,13 @@ namespace hdl
       return candidates.begin()->second;
     }
 #endif
+  }
 
-    template <typename T>
-    class wire_int : public base
+  template<typename T>
+  class wire
+  {
+  private:
+    class wire_int : public detail::base
     {
     private:
       T state;
@@ -139,34 +143,22 @@ namespace hdl
       {
       }
       
-      wire_int(T initial)
-        : state(initial), prev_state(initial),
-#ifndef MULTIASSIGN
-          been_set(true),
-#endif
-          first(true)
-      {
-      }
-      
       friend class wire<T>;
     };
-  }
 
-  template <typename T>
-  class wire
-  {
-    std::shared_ptr<detail::wire_int<T> > w;
+    std::shared_ptr<wire_int> w;
 
   public:
     wire()
-      : w(new detail::wire_int<T>())
+      : w(new wire_int())
     {
       detail::wires.push_back(w);
     }
 
     wire(T initial)
-      : w(new detail::wire_int<T>(initial))
+      : w(new wire_int())
     {
+      w->set(initial);
       detail::wires.push_back(w);
     }
 
@@ -321,64 +313,96 @@ namespace hdl
   };
 
   template <typename T, unsigned int width>
-  class bus : public hdl::detail::named_obj
+  class bus
   {
   private:
-    static_assert(width > 0, "width > 0");
-    std::array<wire<T>, width> wires;
+    class bus_int : public detail::named_obj
+    {
+    private:
+      static_assert(width > 0, "width > 0");
+      std::array<wire<T>, width> wires;
+
+    public:
+      bus_int()
+        : named_obj("")
+      {
+      }
+
+      const wire<T> &at(unsigned int n) const
+      {
+        return wires.at(n);
+      }
+
+      void setname(std::string name)
+      {
+        for(unsigned int c = 0; c < wires.size(); c++)
+          wires[c].setname(name + "[" + std::to_string(c) + "]");
+        named_obj::setname(name);
+      }
+    };
+
+    std::shared_ptr<bus_int> b;
 
   public:
     bus()
-      : named_obj("")
+      : b(new bus_int())
     {
     }
 
     bus(std::initializer_list<T> initial)
-      : named_obj("")
+      : b(new bus_int())
     {
       assert(initial.size() == width);
       unsigned int c = width-1;
       for(auto &i : initial)
-        wires[c--] = i;
+        b->at(c--) = i;
     }
 
     bus(std::array<T, width> initial)
-      : named_obj("")
-    {
-      unsigned int c = 0;
-      for(auto &i : initial)
-        wires[c++] = i;
-    }
-
-    template <typename U, typename detail::enable_if<std::is_integral<U>::value, int>::type dummy = 0>
-    bus(U initial)
-      : named_obj("")
+      : b(new bus_int())
     {
       operator=(initial);
     }
 
+    template <typename U, typename detail::enable_if<std::is_integral<U>::value, int>::type dummy = 0>
+    bus(U initial)
+      : b(new bus_int())
+    {
+      operator=(initial);
+    }
+
+    void setname(std::string name)
+    {
+      b->setname(name);
+    }
+
+    std::string getname() const
+    {
+      return b->getname();
+    }
+
     const wire<T> &operator[](unsigned int n) const
     {
-      return wires.at(n);
+      return b->at(n);
     }
 
     const wire<T> &at(unsigned int n) const
     {
-      return wires.at(n);
+      return b->at(n);
     }
 
     // assignment operators
 
-    void operator=(const std::array<T, width> &b) const
+    void operator=(const std::array<T, width> &b2) const
     {
       for(unsigned int c = 0; c < width; c++)
-        wires[c] = b[c];
+        b->at(c) = b2[c];
     }
 
-    void operator=(const bus<T, width> &b) const
+    void operator=(const bus<T, width> &b2) const
     {
       for(unsigned int c = 0; c < width; c++)
-        wires[c] = b[c];
+        b->at(c) = b2[c];
     }
 
     template <typename U>
@@ -388,15 +412,15 @@ namespace hdl
       if(width >= sizeof(U)*8)
         {
           for(unsigned int c = 0; c < sizeof(U)*8; c++)
-            wires[c] = power(2, c) & value ? 1 : 0;
+            b->at(c) = power(2, c) & value ? 1 : 0;
           if(width > sizeof(U)*8)
             {
               if(std::is_signed<U>::value)
                 for(unsigned int c = sizeof(U)*8; c < width; c++)
-                  wires[c] = power(2, sizeof(U)*8-1) & value ? 1 : 0;
+                  b->at(c) = power(2, sizeof(U)*8-1) & value ? 1 : 0;
               else
                 for(unsigned int c = sizeof(U)*8; c < width; c++)
-                  wires[c] = 0;
+                  b->at(c) = 0;
             }
         }
       else
@@ -405,7 +429,7 @@ namespace hdl
           std::cerr << "WARNING: Bus width is to small for integer constant: " << std::endl;
 #endif
           for(unsigned int c = 0; c < width; c++)
-            wires[c] = power(2, c) & value ? 1 : 0;
+            b->at(c) = power(2, c) & value ? 1 : 0;
         }
     }
 
@@ -415,15 +439,15 @@ namespace hdl
     {
       std::array<T, width> result;
       for(unsigned int c = 0; c < width; c++)
-        result[c] = wires[c];
+        result[c] = b->at(c);
       return result;
     }
 
     operator std::list<std::shared_ptr<detail::base>>() const
     {
       std::list<std::shared_ptr<detail::base> > result;
-      for(auto &w: wires)
-        result.push_back(w);
+      for(unsigned int c = 0; c < width; c++)
+        result.push_back(b->at(c));
       return result;
     }
 
@@ -439,10 +463,10 @@ namespace hdl
           if(d >= width)
             {
               if(std::is_signed<U>::value)
-                result |= wires[width-1] == static_cast<T>(1) ? 1 : 0;
+                result |= b->at(width-1) == static_cast<T>(1) ? 1 : 0;
             }
           else
-            result |= wires[d] == static_cast<T>(1) ? 1 : 0;
+            result |= b->at(d) == static_cast<T>(1) ? 1 : 0;
         }
       return result;
     }

@@ -46,7 +46,7 @@ namespace hdl
     public:
       named_obj(std::string name = "");
       std::string getname() const;
-      void setname(std::string name);
+      virtual void setname(std::string name);
     };
 
     class base : public named_obj
