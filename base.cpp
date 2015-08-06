@@ -30,32 +30,22 @@ void hdl::detail::named_obj::setname(std::string name)
 void hdl::detail::base::set_cur_part(hdl::detail::base *the_part)
 {
   std::thread::id id = std::this_thread::get_id();
-  lock();
+  mutex.lock();
   cur_part[id] = the_part;
-  unlock();
+  mutex.unlock();
 }
 
 hdl::detail::base *hdl::detail::base::get_cur_part()
 {
   std::thread::id id = std::this_thread::get_id();
   base *p;
-  lock();
+  mutex.lock();
   if(cur_part.size() == 0) // set from top level testbench
     p = NULL;
   else
     p = cur_part[id];
-  unlock();
-  return p;
-}
-
-void hdl::detail::base::lock()
-{
-  mutex.lock();
-}
-
-void hdl::detail::base::unlock()
-{
   mutex.unlock();
+  return p;
 }
 
 std::list<std::shared_ptr<hdl::detail::base> > hdl::detail::wires;

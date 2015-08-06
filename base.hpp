@@ -60,8 +60,6 @@ namespace hdl
 
       void set_cur_part(base *the_part);
       base *get_cur_part();
-      void lock();
-      void unlock();      
 
       virtual bool changed() = 0;
       virtual void update(uint64_t time) = 0;

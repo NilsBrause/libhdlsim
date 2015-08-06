@@ -5,6 +5,7 @@
 #include <iostream>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <limits>
 #include <set>
 
@@ -52,6 +53,7 @@ namespace hdl
 #endif
       bool first;
       std::map<base*, bool> seen_event;
+      std::mutex mutex;
 
       virtual void update(uint64_t)
       {
@@ -77,6 +79,7 @@ namespace hdl
       
       virtual bool changed()
       {
+        std::lock_guard<std::mutex> lock(mutex);
 #ifdef MULTIASSIGN
         if(drivers.size() > 0)
           return resolve(drivers, this) != state;
@@ -89,23 +92,18 @@ namespace hdl
 
       void set(const T &t)
       {
+        std::lock_guard<std::mutex> lock(mutex);
 #ifdef MULTIASSIGN
-        base *p = get_cur_part();
-        lock();
-        drivers[p] = t;
-        unlock();
+        drivers[get_cur_part()] = t;
 #else
 #ifdef DEBUG
-        base *p = get_cur_part();
-        lock();
-        drivers.insert(p);
+        drivers.insert(get_cur_part());
         if(drivers.size() > 1)
           {
             std::cerr << "ERROR: Wire \"" << getname() << "\" has multiple drivers: " << std::endl;
             for(auto d : drivers)
               std::cout << "  " << (!d ? "NULL" : d->getname()) << (d == p ? "*" : "" ) << std::endl;
           }
-        unlock();
 #endif
         next_state = t;
         been_set = true;
@@ -119,11 +117,9 @@ namespace hdl
 
       bool event()
       {
-        base *p = get_cur_part();
-        lock();
-        bool seen = seen_event[p];
-        seen_event[p] = true;
-        unlock();
+        std::lock_guard<std::mutex> lock(mutex);
+        bool seen = seen_event[get_cur_part()];
+        seen_event[get_cur_part()] = true;
         return (prev_state != state) && !seen;
       }
 
