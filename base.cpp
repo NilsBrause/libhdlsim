@@ -10,17 +10,24 @@ std::string new_tmp()
   return ss.str();
 }
 
-hdl::detail::root::root(std::string name)
+hdl::detail::named_obj::named_obj(std::string name)
   : myname(name == "" ? new_tmp() : name)
 {
 }
 
-std::string hdl::detail::root::getname() const
+std::string hdl::detail::named_obj::getname() const
 {
   return myname;
 }
 
-void hdl::detail::root::set_cur_part(hdl::detail::part_base *the_part)
+void hdl::detail::named_obj::setname(std::string name)
+{
+  myname = name;
+}
+
+//-----------------------------------------------------------------------------
+
+void hdl::detail::base::set_cur_part(hdl::detail::base *the_part)
 {
   std::thread::id id = std::this_thread::get_id();
   lock();
@@ -28,10 +35,10 @@ void hdl::detail::root::set_cur_part(hdl::detail::part_base *the_part)
   unlock();
 }
 
-hdl::detail::part_base *hdl::detail::root::get_cur_part()
+hdl::detail::base *hdl::detail::base::get_cur_part()
 {
   std::thread::id id = std::this_thread::get_id();
-  part_base *p;
+  base *p;
   lock();
   if(cur_part.size() == 0) // set from top level testbench
     p = NULL;
@@ -41,27 +48,17 @@ hdl::detail::part_base *hdl::detail::root::get_cur_part()
   return p;
 }
 
-void hdl::detail::root::lock()
+void hdl::detail::base::lock()
 {
   mutex.lock();
 }
 
-void hdl::detail::root::unlock()
+void hdl::detail::base::unlock()
 {
   mutex.unlock();
 }
 
-hdl::detail::part_base::part_base(std::string name)
-  : base(name)
-{
-}
-
-hdl::detail::wire_base::wire_base(std::string name)
-  : base(name)
-{
-}
-
-std::list<std::shared_ptr<hdl::detail::wire_base> > hdl::detail::wires;
-std::list<std::shared_ptr<hdl::detail::part_base> > hdl::detail::parts;
-std::unordered_map<std::thread::id, hdl::detail::part_base*> hdl::detail::root::cur_part;
-std::mutex hdl::detail::root::mutex;
+std::list<std::shared_ptr<hdl::detail::base> > hdl::detail::wires;
+std::list<std::shared_ptr<hdl::detail::base> > hdl::detail::parts;
+std::unordered_map<std::thread::id, hdl::detail::base*> hdl::detail::base::cur_part;
+std::mutex hdl::detail::base::mutex;

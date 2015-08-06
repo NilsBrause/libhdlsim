@@ -9,16 +9,16 @@ namespace hdl
 {
   namespace detail
   {
-    class part_int : public part_base
+    class part_int : public base
     {
       std::function<void(uint64_t)> logic;
-      void update(uint64_t time);
+      virtual void update(uint64_t time);
+      virtual bool changed();
       
     public:
-      part_int(std::list<std::list<std::shared_ptr<detail::wire_base> > > inputs,
-               std::list<std::list<std::shared_ptr<detail::wire_base> > > outputs,
-               std::function<void(uint64_t)> logic,
-               std::string name);
+      part_int(std::list<std::list<std::shared_ptr<detail::base> > > inputs,
+               std::list<std::list<std::shared_ptr<detail::base> > > outputs,
+               std::function<void(uint64_t)> logic);
     };
   }
 
@@ -30,8 +30,8 @@ namespace hdl
     friend class simulator;
 
   public:
-    part(std::list<std::list<std::shared_ptr<detail::wire_base> > > inputs,
-         std::list<std::list<std::shared_ptr<detail::wire_base> > > outputs,
+    part(std::list<std::list<std::shared_ptr<detail::base> > > inputs,
+         std::list<std::list<std::shared_ptr<detail::base> > > outputs,
          std::function<void(uint64_t)> logic,
          std::string name = "unknown");
   };

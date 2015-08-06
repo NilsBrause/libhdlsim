@@ -21,8 +21,8 @@ namespace hdl
     // Resolve multiple assignments to a wire.
     // Has to be reimplemented by types with high-Z support.
     template <typename T>
-    T resolve(const std::map<hdl::detail::part_base*, T> &candidates,
-              const hdl::detail::wire_base *w)
+    T resolve(const std::map<hdl::detail::base*, T> &candidates,
+              const hdl::detail::base *w)
     {
       if(candidates.size() > 1)
         {
@@ -36,22 +36,22 @@ namespace hdl
 #endif
 
     template <typename T>
-    class wire_int : public wire_base
+    class wire_int : public base
     {
     private:
       T state;
       T prev_state;
 #ifdef MULTIASSIGN
-      std::map<part_base*, T> drivers;
+      std::map<base*, T> drivers;
 #else
       T next_state;
       bool been_set;
 #ifdef DEBUG
-      std::set<part_base*> drivers;
+      std::set<base*> drivers;
 #endif
 #endif
       bool first;
-      std::map<part_base*, bool> seen_event;
+      std::map<base*, bool> seen_event;
 
       virtual void update(uint64_t)
       {
@@ -75,7 +75,7 @@ namespace hdl
 #endif
       }
       
-      bool changed()
+      virtual bool changed()
       {
 #ifdef MULTIASSIGN
         if(drivers.size() > 0)
@@ -90,13 +90,13 @@ namespace hdl
       void set(const T &t)
       {
 #ifdef MULTIASSIGN
-        part_base *p = get_cur_part();
+        base *p = get_cur_part();
         lock();
         drivers[p] = t;
         unlock();
 #else
 #ifdef DEBUG
-        part_base *p = get_cur_part();
+        base *p = get_cur_part();
         lock();
         drivers.insert(p);
         if(drivers.size() > 1)
@@ -119,7 +119,7 @@ namespace hdl
 
       bool event()
       {
-        part_base *p = get_cur_part();
+        base *p = get_cur_part();
         lock();
         bool seen = seen_event[p];
         seen_event[p] = true;
@@ -134,10 +134,19 @@ namespace hdl
         return ss.str();
       }
       
-      wire_int(std::string name, T initial)
-        : wire_base(name), state(initial), prev_state(initial),
+      wire_int()
+        : state(T()), prev_state(T()),
 #ifndef MULTIASSIGN
           been_set(false),
+#endif
+          first(true)
+      {
+      }
+      
+      wire_int(T initial)
+        : state(initial), prev_state(initial),
+#ifndef MULTIASSIGN
+          been_set(true),
 #endif
           first(true)
       {
@@ -153,8 +162,14 @@ namespace hdl
     std::shared_ptr<detail::wire_int<T> > w;
 
   public:
-    wire(T initial = T(), std::string name = "")
-      : w(new detail::wire_int<T>(name, initial))
+    wire()
+      : w(new detail::wire_int<T>())
+    {
+      detail::wires.push_back(w);
+    }
+
+    wire(T initial)
+      : w(new detail::wire_int<T>(initial))
     {
       detail::wires.push_back(w);
     }
@@ -162,6 +177,16 @@ namespace hdl
     bool event() const
     {
       return w->event();
+    }
+
+    std::string getname() const
+    {
+      return w->getname();
+    }
+
+    void setname(std::string name)
+    {
+      w->setname(name);
     }
 
     // assignment operators
@@ -183,14 +208,14 @@ namespace hdl
       return w->get();
     }
 
-    operator std::shared_ptr<detail::wire_base>() const
+    operator std::shared_ptr<detail::base>() const
     {
       return w;
     }
 
-    operator std::list<std::shared_ptr<detail::wire_base>>() const
+    operator std::list<std::shared_ptr<detail::base>>() const
     {
-      std::list<std::shared_ptr<detail::wire_base> > result;
+      std::list<std::shared_ptr<detail::base> > result;
       result.push_back(w);
       return result;
     }
@@ -300,7 +325,7 @@ namespace hdl
   };
 
   template <typename T, unsigned int width>
-  class bus
+  class bus : public hdl::detail::named_obj
   {
   private:
     static_assert(width > 0, "width > 0");
@@ -308,10 +333,12 @@ namespace hdl
 
   public:
     bus()
+      : named_obj("")
     {
     }
 
     bus(std::initializer_list<T> initial)
+      : named_obj("")
     {
       assert(initial.size() == width);
       unsigned int c = width-1;
@@ -320,6 +347,7 @@ namespace hdl
     }
 
     bus(std::array<T, width> initial)
+      : named_obj("")
     {
       unsigned int c = 0;
       for(auto &i : initial)
@@ -328,6 +356,7 @@ namespace hdl
 
     template <typename U, typename detail::enable_if<std::is_integral<U>::value, int>::type dummy = 0>
     bus(U initial)
+      : named_obj("")
     {
       operator=(initial);
     }
@@ -394,9 +423,9 @@ namespace hdl
       return result;
     }
 
-    operator std::list<std::shared_ptr<detail::wire_base>>() const
+    operator std::list<std::shared_ptr<detail::base>>() const
     {
-      std::list<std::shared_ptr<detail::wire_base> > result;
+      std::list<std::shared_ptr<detail::base> > result;
       for(auto &w: wires)
         result.push_back(w);
       return result;

@@ -165,8 +165,8 @@ std::ostream& operator<<(std::ostream& os, const std_logic& rhs)
 }
 
 #ifdef MULTIASSIGN
-std_logic resolve(const std::map<hdl::detail::part_base*, std_logic> &candidates,
-                  const hdl::detail::wire_base *w)
+std_logic resolve(const std::map<hdl::detail::base*, std_logic> &candidates,
+                  const hdl::detail::base *w)
 {
   std_logic result = 'Z';
   unsigned int nonzcnt = 0;

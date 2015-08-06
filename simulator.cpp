@@ -8,9 +8,9 @@ simulator::simulator(part testbench)
 
 void simulator::run(uint64_t duration)
 {
-  std::vector<std::shared_ptr<hdl::detail::wire_base> > wires2up;
-  std::vector<std::shared_ptr<hdl::detail::part_base> > procs2up;
-  std::shared_ptr<hdl::detail::part_base> testbench = tb.p;
+  std::vector<std::shared_ptr<hdl::detail::base> > wires2up;
+  std::vector<std::shared_ptr<hdl::detail::base> > procs2up;
+  std::shared_ptr<hdl::detail::base> testbench = tb.p;
   bool first = true;
 
   for(; duration > 0; duration--, cur_time++)
@@ -52,7 +52,6 @@ void simulator::run(uint64_t duration)
 #endif
               wires2up[c]->update(cur_time);
             }
-
 
           // collect all connected parts
           {

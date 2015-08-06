@@ -2,18 +2,14 @@
 
 using namespace hdl;
 
-detail::part_int::part_int(std::list<std::list<std::shared_ptr<detail::wire_base> > > inputs,
-                           std::list<std::list<std::shared_ptr<detail::wire_base> > > outputs,
-                           std::function<void(uint64_t)> logic,
-                           std::string name)
-  : part_base(name), logic(logic)
+detail::part_int::part_int(std::list<std::list<std::shared_ptr<detail::base> > > inputs,
+                           std::list<std::list<std::shared_ptr<detail::base> > > outputs,
+                           std::function<void(uint64_t)> logic)
+  : logic(logic)
 {
   for(auto &l : outputs)
     for(auto &w : l)
-      add_child(w);
-  for(auto &l : inputs)
-    for(auto &w : l)
-      add_parent(w);
+      children.insert(w);
 }
 
 void detail::part_int::update(uint64_t time)
@@ -23,17 +19,20 @@ void detail::part_int::update(uint64_t time)
   set_cur_part(NULL);
 }
 
-part::part(std::list<std::list<std::shared_ptr<detail::wire_base> > > inputs,
-           std::list<std::list<std::shared_ptr<detail::wire_base> > > outputs,
+bool detail::part_int::changed()
+{
+  throw std::logic_error("part_int::changed() called.");
+}
+
+part::part(std::list<std::list<std::shared_ptr<detail::base> > > inputs,
+           std::list<std::list<std::shared_ptr<detail::base> > > outputs,
            std::function<void(uint64_t)> logic,
            std::string name)
-  : p(new detail::part_int(inputs, outputs, logic, name))
+  : p(new detail::part_int(inputs, outputs, logic))
 {
+  p->setname(name);
   for(auto &l : inputs)
     for(auto &w : l)
-      w->add_child(p);
-  for(auto &l : outputs)
-    for(auto &w : l)
-      w->add_parent(p);
+      w->children.insert(p);
   detail::parts.push_back(p);
 }

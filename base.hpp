@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <sstream>
 #include <unordered_map>
+#include <unordered_set>
 #include <thread>
 #include <mutex>
 
@@ -21,6 +22,7 @@ namespace hdl
   }
 
   class simulator;
+  class part;
 
   namespace detail
   {
@@ -36,85 +38,40 @@ namespace hdl
     {
     };
 
-    class part_base;
-
-    class root
+    class named_obj
     {
     private:
       std::string myname;
 
+    public:
+      named_obj(std::string name = "");
+      std::string getname() const;
+      void setname(std::string name);
+    };
+
+    class base : public named_obj
+    {
+    private:
       static std::mutex mutex;
-      static std::unordered_map<std::thread::id, part_base*> cur_part;
+      static std::unordered_map<std::thread::id, base*> cur_part;
 
     protected:
-      void set_cur_part(part_base *the_part);
-      part_base *get_cur_part();
+      std::unordered_set<std::shared_ptr<base> > children;
+
+      void set_cur_part(base *the_part);
+      base *get_cur_part();
       void lock();
       void unlock();      
 
-    public:
-      root(std::string name);
-      std::string getname() const;
-    };
-
-    template <typename T>
-    class base : public root
-    {
-    protected:
-      std::list<std::shared_ptr<T> > parents;
-      std::list<std::shared_ptr<T> > children;
-
+      virtual bool changed() = 0;
       virtual void update(uint64_t time) = 0;
+
       friend class hdl::simulator;
-
-      base(std::string name)
-        : root(name)
-      {
-      }
-
-    public:
-      void add_child(std::shared_ptr<T> child)
-      {
-        if(std::find(children.begin(), children.end(), child) == children.end())
-          children.push_back(child);
-      }
-
-      void add_parent(std::shared_ptr<T> parent)
-      {
-        if(std::find(parents.begin(), parents.end(), parent) == parents.end())
-          parents.push_back(parent);
-      }
+      friend class hdl::part;
     };
     
-    class wire_base;
-
-    class part_base : public base<wire_base>
-    {
-    protected:
-      part_base(std::string name);
-    };
-
-    class part_int;
-
-    class wire_base : public base<part_base>
-    {
-    private:
-      virtual bool changed() = 0;
-      friend class hdl::simulator;
-
-    protected:
-      std::string id;
-      std::string getid();
-      virtual int digits() = 0;
-      virtual bool event() = 0;
-      virtual std::string print() = 0;
-      wire_base(std::string name);
-
-      friend class hdl::detail::part_int;
-    };
-
-    extern std::list<std::shared_ptr<wire_base> > wires;
-    extern std::list<std::shared_ptr<part_base> > parts;
+    extern std::list<std::shared_ptr<base> > wires;
+    extern std::list<std::shared_ptr<base> > parts;
   }
 }
 
