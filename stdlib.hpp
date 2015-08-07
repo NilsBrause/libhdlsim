@@ -41,6 +41,18 @@ namespace hdl
          }, "print");
   }
 
+  template <typename U, typename T, unsigned int bits>
+  void print(bus<T, bits> b)
+  {
+    part({ b },
+         { },
+         [=] (uint64_t time)
+         {
+           std::cout << "[" << time << "] "
+                     << b.getname() << ": " << static_cast<U>(b) << std::endl;
+         }, "print");
+  }
+
   template <typename T>
   void assign(wire<T> in,
               wire<T> out)
