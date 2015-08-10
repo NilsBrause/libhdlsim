@@ -17,11 +17,7 @@ void detail::part_int::update(uint64_t time)
   set_cur_part(this);
   logic(time);
   set_cur_part(NULL);
-}
-
-bool detail::part_int::changed()
-{
-  throw std::logic_error("part_int::changed() called.");
+  set_changed(false);
 }
 
 part::part(std::list<std::list<std::shared_ptr<detail::base> > > inputs,

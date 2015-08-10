@@ -13,7 +13,6 @@ namespace hdl
     {
       std::function<void(uint64_t)> logic;
       virtual void update(uint64_t time);
-      virtual bool changed();
       
     public:
       part_int(std::list<std::list<std::shared_ptr<detail::base> > > inputs,

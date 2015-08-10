@@ -51,6 +51,8 @@ void simulator::run(uint64_t duration)
               std::cerr << "Updating wire " << wires2up[c]->getname() << std::endl;
 #endif
               wires2up[c]->update(cur_time);
+              for(auto &p : wires2up[c]->children)
+                p->set_changed(true);
             }
 
           // collect all connected parts
@@ -58,7 +60,8 @@ void simulator::run(uint64_t duration)
             procs2up.clear();
             for(auto &w : wires2up)
               for(auto &p : w->children)
-                procs2up.push_back(p);
+                if(p->changed())
+                  procs2up.push_back(p);
             // sort & unique afterwards is actually faster
             std::sort(procs2up.begin(), procs2up.end());
             auto last = std::unique(procs2up.begin(), procs2up.end());

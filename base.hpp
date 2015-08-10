@@ -54,6 +54,7 @@ namespace hdl
     private:
       static std::mutex mutex;
       static std::unordered_map<std::thread::id, base*> cur_part;
+      bool been_changed;
 
     protected:
       std::unordered_set<std::shared_ptr<base> > children;
@@ -61,15 +62,17 @@ namespace hdl
       void set_cur_part(base *the_part);
       base *get_cur_part();
 
-      virtual bool changed() = 0;
+      inline void set_changed(bool b) { been_changed = b; }
+      inline bool changed() { return been_changed; }
+
       virtual void update(uint64_t time) = 0;
 
       friend class hdl::simulator;
       friend class hdl::part;
     };
     
-    extern std::list<std::shared_ptr<base> > wires;
-    extern std::list<std::shared_ptr<base> > parts;
+    extern std::vector<std::shared_ptr<base> > wires;
+    extern std::vector<std::shared_ptr<base> > parts;
   }
 }
 

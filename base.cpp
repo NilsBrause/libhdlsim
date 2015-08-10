@@ -48,7 +48,7 @@ hdl::detail::base *hdl::detail::base::get_cur_part()
   return p;
 }
 
-std::list<std::shared_ptr<hdl::detail::base> > hdl::detail::wires;
-std::list<std::shared_ptr<hdl::detail::base> > hdl::detail::parts;
+std::vector<std::shared_ptr<hdl::detail::base> > hdl::detail::wires;
+std::vector<std::shared_ptr<hdl::detail::base> > hdl::detail::parts;
 std::unordered_map<std::thread::id, hdl::detail::base*> hdl::detail::base::cur_part;
 std::mutex hdl::detail::base::mutex;

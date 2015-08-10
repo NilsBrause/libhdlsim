@@ -79,19 +79,7 @@ namespace hdl
             been_set = false;
           }
 #endif
-      }
-      
-      virtual bool changed()
-      {
-        std::lock_guard<std::mutex> lock(mutex);
-#ifdef MULTIASSIGN
-        if(drivers.size() > 0)
-          return resolve(drivers, this) != state;
-        else
-          return false;
-#else            
-        return (next_state != state);
-#endif
+        set_changed(false);
       }
 
       void set(const T &t)
@@ -99,6 +87,13 @@ namespace hdl
         std::lock_guard<std::mutex> lock(mutex);
 #ifdef MULTIASSIGN
         drivers[get_cur_part()] = t;
+        if(!changed())
+          if(t != state)
+            set_changed(true);
+          /*
+          if(resolve(drivers, this) != state)
+            been_changed = true;
+          */
 #else
 #ifdef DEBUG
         drivers.insert(get_cur_part());
@@ -111,6 +106,9 @@ namespace hdl
 #endif
         next_state = t;
         been_set = true;
+        if(!changed())
+          if(next_state != state)
+            set_changed(true);
 #endif
       }
       
