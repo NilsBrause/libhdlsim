@@ -25,30 +25,6 @@ void hdl::detail::named_obj::setname(std::string name)
   myname = name;
 }
 
-//-----------------------------------------------------------------------------
-
-void hdl::detail::base::set_cur_part(hdl::detail::base *the_part)
-{
-  std::thread::id id = std::this_thread::get_id();
-  mutex.lock();
-  cur_part[id] = the_part;
-  mutex.unlock();
-}
-
-hdl::detail::base *hdl::detail::base::get_cur_part()
-{
-  std::thread::id id = std::this_thread::get_id();
-  base *p;
-  mutex.lock();
-  if(cur_part.size() == 0) // set from top level testbench
-    p = NULL;
-  else
-    p = cur_part[id];
-  mutex.unlock();
-  return p;
-}
-
 std::vector<std::shared_ptr<hdl::detail::base> > hdl::detail::wires;
 std::vector<std::shared_ptr<hdl::detail::base> > hdl::detail::parts;
-std::unordered_map<std::thread::id, hdl::detail::base*> hdl::detail::base::cur_part;
-std::mutex hdl::detail::base::mutex;
+thread_local hdl::detail::base* hdl::detail::base::cur_part;

@@ -10,8 +10,6 @@
 #include <sstream>
 #include <unordered_map>
 #include <unordered_set>
-#include <thread>
-#include <mutex>
 
 namespace hdl
 {
@@ -52,15 +50,14 @@ namespace hdl
     class base : public named_obj
     {
     private:
-      static std::mutex mutex;
-      static std::unordered_map<std::thread::id, base*> cur_part;
+      static thread_local base* cur_part;
       bool been_changed;
 
     protected:
       std::unordered_set<std::shared_ptr<base> > children;
 
-      void set_cur_part(base *the_part);
-      base *get_cur_part();
+      inline void set_cur_part(base *the_part) { cur_part = the_part; }
+      inline base *get_cur_part() { return cur_part; }
 
       inline void set_changed(bool b) { been_changed = b; }
       inline bool changed() { return been_changed; }
