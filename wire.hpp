@@ -84,9 +84,11 @@ namespace hdl
 
       void set(const T &t)
       {
-        std::lock_guard<std::mutex> lock(mutex);
 #ifdef MULTIASSIGN
-        drivers[get_cur_part()] = t;
+        {
+          std::lock_guard<std::mutex> lock(mutex);
+          drivers[get_cur_part()] = t;
+        }
         if(!changed())
           if(t != state)
             set_changed(true);
@@ -96,7 +98,10 @@ namespace hdl
           */
 #else
 #ifdef DEBUG
-        drivers.insert(get_cur_part());
+        {
+          std::lock_guard<std::mutex> lock(mutex);
+          drivers.insert(get_cur_part());
+        }
         if(drivers.size() > 1)
           {
             std::cerr << "ERROR: Wire \"" << getname() << "\" has multiple drivers: " << std::endl;
