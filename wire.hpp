@@ -82,8 +82,11 @@ namespace hdl
         set_changed(false);
       }
 
-      void set(const T &t)
+      template <typename U>
+      void set(const U &u)
       {
+        T t;
+        t = u;
 #ifdef MULTIASSIGN
         {
           std::lock_guard<std::mutex> lock(mutex);
@@ -106,7 +109,7 @@ namespace hdl
           {
             std::cerr << "ERROR: Wire \"" << getname() << "\" has multiple drivers: " << std::endl;
             for(auto d : drivers)
-              std::cout << "  " << (!d ? "NULL" : d->getname()) << (d == p ? "*" : "" ) << std::endl;
+              std::cout << "  " << (!d ? "NULL" : d->getname()) << std::endl;
           }
 #endif
         next_state = t;
@@ -182,19 +185,26 @@ namespace hdl
 
     // assignment operators
 
-    void operator=(const T &t) const
+    template <typename U>
+    void operator=(const U &t) const
     {
       w->set(t);
     }
 
-    void operator=(const wire<T> &w2) const
+    template <typename U>
+    void operator=(const wire<U> &w2) const
     {
-      w->set((T)w2);
+      w->set(w2.get());
     }
 
     // conversion operators
 
     operator T() const
+    {
+      return w->get();
+    }
+
+    T get() const
     {
       return w->get();
     }
@@ -213,58 +223,64 @@ namespace hdl
 
     // unary operators
 
-#define OPERATOR1(OP)     \
-    T operator OP() const \
-    {                     \
-      return OP w->get(); \
-    }                     \
+#define OPERATOR1(OP)                           \
+    decltype(OP T()) operator OP() const        \
+    {                                           \
+      return OP w->get();                       \
+    }                                           \
 
-    OPERATOR1(not)
+    OPERATOR1(!)
     OPERATOR1(~)
     OPERATOR1(+)
     OPERATOR1(-)
 
     // binary operators
 
-#define OPERATOR2(RET, OP)                   \
-    RET operator OP(const wire<T> &w2) const \
-    {                                        \
-      return w->get() OP w2;                 \
-    }                                        \
-                                             \
-    RET operator OP(const T &t) const        \
-    {                                        \
-      return w->get() OP t;                  \
+#define OPERATOR2(OP)                                           \
+    template <typename U>                                       \
+    decltype(T() OP U()) operator OP(const wire<U> &w2) const   \
+    {                                                           \
+      return w->get() OP w2.get();                              \
+    }                                                           \
+                                                                \
+    template <typename U>                                       \
+    decltype(T() OP U()) operator OP(const U &t) const          \
+    {                                                           \
+      return w->get() OP t;                                     \
     }
 
-    OPERATOR2(bool, ==)
-    OPERATOR2(bool, !=)
-    OPERATOR2(bool, >)
-    OPERATOR2(bool, <)
-    OPERATOR2(bool, >=)
-    OPERATOR2(bool, <=)
-    OPERATOR2(T, &)
-    OPERATOR2(T, |)
-    OPERATOR2(T, ^)
-    OPERATOR2(T, +)
-    OPERATOR2(T, -)
-    OPERATOR2(T, *)
-    OPERATOR2(T, /)
-    OPERATOR2(T, %)
+    OPERATOR2(==)
+    OPERATOR2(!=)
+    OPERATOR2(>)
+    OPERATOR2(<)
+    OPERATOR2(>=)
+    OPERATOR2(<=)
+    OPERATOR2(&)
+    OPERATOR2(|)
+    OPERATOR2(^)
+    OPERATOR2(+)
+    OPERATOR2(-)
+    OPERATOR2(*)
+    OPERATOR2(/)
+    OPERATOR2(%)
+    OPERATOR2(<<)
+    OPERATOR2(>>)
 
-    // modifying binary operators
+    // modifying operators
 
-#define OPERATOR3(OP)                             \
-    wire<T> &operator OP(const wire<T> &w2) const \
-    {                                             \
-      w->set(w->get() OP w2);                     \
-      return *this;                               \
-    }                                             \
-                                                  \
-    wire<T> &operator OP(const T &t) const        \
-    {                                             \
-      w->set(w->get() OP t);                      \
-      return *this;                               \
+#define OPERATOR3(OP)                                   \
+    template <typename U>                               \
+    const wire<T> &operator OP(const wire<U> &w2) const \
+    {                                                   \
+      w->set(w->get() OP w2.get());                     \
+      return *this;                                     \
+    }                                                   \
+                                                        \
+    template <typename U>                               \
+    const wire<T> &operator OP(const U &t) const        \
+    {                                                   \
+      w->set(w->get() OP t);                            \
+      return *this;                                     \
     }
 
     OPERATOR3(&=)
@@ -275,44 +291,8 @@ namespace hdl
     OPERATOR3(*=)
     OPERATOR3(/=)
     OPERATOR3(%=)
-
-    // two-type binary operators
-
-#define OPERATOR4(RET, OP)                   \
-    template <typename U>                    \
-    RET operator OP(const wire<U> &w2) const \
-    {                                        \
-      return w->get() OP w2;                 \
-    }                                        \
-                                             \
-    template <typename U>                    \
-    RET operator OP(const U &t) const        \
-    {                                        \
-      return w->get() OP t;                  \
-    }
-
-    OPERATOR4(T, <<)
-    OPERATOR4(T, >>)
-
-    // modifying two-type binary operators
-
-#define OPERATOR5(OP)                             \
-    template <typename U>                         \
-    wire<T> &operator OP(const wire<U> &w2) const \
-    {                                             \
-      w->set(w->get() OP w2);                     \
-      return *this;                               \
-    }                                             \
-                                                  \
-    template <typename U>                         \
-    wire<T> &operator OP(const U &t) const        \
-    {                                             \
-      w->set(w->get() OP t);                      \
-      return *this;                               \
-    }
-
-    OPERATOR5(<<=)
-    OPERATOR5(>>=)
+    OPERATOR3(<<=)
+    OPERATOR3(>>=)
   };
 
   template <typename T, unsigned int width>
@@ -367,13 +347,6 @@ namespace hdl
       operator=(initial);
     }
 
-    template <typename U, typename detail::enable_if<std::is_integral<U>::value, int>::type dummy = 0>
-    bus(U initial)
-      : b(new bus_int())
-    {
-      operator=(initial);
-    }
-
     void setname(std::string name)
     {
       b->setname(name);
@@ -408,34 +381,6 @@ namespace hdl
         b->at(c) = b2[c];
     }
 
-    template <typename U>
-    typename detail::enable_if<std::is_integral<U>::value>::type
-    operator=(const U value) const
-    {
-      if(width >= sizeof(U)*8)
-        {
-          for(unsigned int c = 0; c < sizeof(U)*8; c++)
-            b->at(c) = power(2, c) & value ? 1 : 0;
-          if(width > sizeof(U)*8)
-            {
-              if(std::is_signed<U>::value)
-                for(unsigned int c = sizeof(U)*8; c < width; c++)
-                  b->at(c) = power(2, sizeof(U)*8-1) & value ? 1 : 0;
-              else
-                for(unsigned int c = sizeof(U)*8; c < width; c++)
-                  b->at(c) = 0;
-            }
-        }
-      else
-        {
-#ifdef DEBUG
-          std::cerr << "WARNING: Bus width is to small for integer constant: " << std::endl;
-#endif
-          for(unsigned int c = 0; c < width; c++)
-            b->at(c) = power(2, c) & value ? 1 : 0;
-        }
-    }
-
     // conversion operators
 
     operator std::array<T, width>() const
@@ -453,33 +398,20 @@ namespace hdl
         result.push_back(b->at(c));
       return result;
     }
-
-    template <typename U, typename detail::enable_if<std::is_integral<U>::value, int>::type dummy = 0>
-    operator U() const
-    {
-      static_assert(sizeof(U)*8 >= width, "sizeof(U)*8 >= width");
-      U result = 0;
-      for(unsigned int c = 0; c < sizeof(U)*8; c++)
-        {
-          unsigned int d = sizeof(U)*8-c-1;
-          result <<= 1;
-          if(d >= width)
-            {
-              if(std::is_signed<U>::value)
-                result |= b->at(width-1) == static_cast<T>(1) ? 1 : 0;
-            }
-          else
-            result |= b->at(d) == static_cast<T>(1) ? 1 : 0;
-        }
-      return result;
-    }
   };
 
   template <typename T, unsigned int width>
   std::ostream& operator<<(std::ostream& lhs, bus<T, width> const& rhs)
   {
     for(unsigned int c = 0; c < width; c++)
-      lhs << rhs[width-c-1];
+      lhs << rhs[width-c-1].get();
+    return lhs;
+  }
+
+  template <typename T>
+  std::ostream& operator<<(std::ostream& lhs, wire<T> const& rhs)
+  {
+    lhs << rhs.get();
     return lhs;
   }
 }

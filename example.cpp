@@ -11,22 +11,25 @@ int main()
   
   wire<std_logic> clk;
   wire<std_logic> reset;
+
+  wire<fixed_t<true, bits, 0>> one(1), tmp, count;
+  wire<fixed_t<true, 2*bits, 0>> square;
   
-  bus<std_logic, bits> one = 1;
-  bus<std_logic, bits> tmp;
-  bus<std_logic, bits> count;
   add(count, one, tmp);
   reg(clk, reset, wire<std_logic>(1), tmp, count);
+  mul(count, count, square);
 
   print(clk);
   print(reset);
   print(count);
+  print(square);
 
   clk.setname("clk");
   reset.setname("reset");
   one.setname("one");
   tmp.setname("tmp");
   count.setname("count");
+  square.setname("square");
 
   part testbench = part({ },
                         { clk, reset },

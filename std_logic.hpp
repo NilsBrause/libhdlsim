@@ -7,7 +7,7 @@ private:
   enum state_t { high, low, highz, undef };
   state_t state;
 
-  std_logic lut2(const std_logic &rhs, state_t hh, state_t hl, state_t lh, state_t ll) const
+  inline std_logic lut2(const std_logic &rhs, state_t hh, state_t hl, state_t lh, state_t ll) const
   {
     std_logic lhs;
     switch(state)
@@ -87,6 +87,26 @@ public:
     return state != rhs.state;
   }
 
+  bool operator>(const std_logic& rhs) const
+  {
+    return lut2(rhs, low, high, low, low);
+  }
+
+  bool operator>=(const std_logic& rhs) const
+  {
+    return lut2(rhs, high, high, low, high);
+  }
+
+  bool operator<(const std_logic& rhs) const
+  {
+    return lut2(rhs, low, low, high, low);
+  }
+
+  bool operator<=(const std_logic& rhs) const
+  {
+    return lut2(rhs, high, low, high, high);
+  }
+
   operator bool() const
   {
     switch(state)
@@ -155,6 +175,41 @@ public:
   std_logic operator ^(const std_logic &rhs) const
   {
     return lut2(rhs, low, high, high, low);
+  }
+
+  std_logic operator +(const std_logic &rhs) const
+  {
+    return lut2(rhs, low, high, high, low);
+  }
+
+  std_logic operator -(const std_logic &rhs) const
+  {
+    return lut2(rhs, low, high, high, low);
+  }
+
+  std_logic operator *(const std_logic &rhs) const
+  {
+    return lut2(rhs, high, low, low, low);
+  }
+
+  std_logic operator /(const std_logic &rhs) const
+  {
+    return lut2(rhs, high, undef, low, undef);
+  }
+
+  std_logic operator %(const std_logic &rhs) const
+  {
+    return lut2(rhs, low, undef, low, undef);
+  }
+
+  std_logic operator +() const
+  {
+    return *this;
+  }
+
+  std_logic operator -() const
+  {
+    return operator not();
   }
 };
 

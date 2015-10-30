@@ -6,7 +6,7 @@
 
 #include <wire.hpp>
 #include <part.hpp>
-#include <std_logic.hpp>
+#include <fixed.hpp>
 
 namespace hdl
 {
@@ -77,6 +77,38 @@ namespace hdl
          }, "assign");
   }
 
+  template<typename T, bool sign, unsigned int bits,
+           unsigned int mbits, unsigned int fbits>
+  typename std::enable_if<mbits+fbits == bits>::type
+  assign(bus<T, bits> in,
+         wire<fixed_t<sign, mbits, fbits>> out)
+  {
+    part({ in },
+         { out },
+         [=] (uint64_t)
+         {
+           fixed_t<sign, mbits, fbits> tmp;
+           for(unsigned int c = 0; c < bits; c++)
+             tmp.set(c, in[c]);
+           out = tmp;
+         }, "assign");
+  }
+
+  template<typename T, bool sign, unsigned int bits,
+           unsigned int mbits, unsigned int fbits>
+  typename std::enable_if<mbits+fbits == bits>::type
+  assign(wire<fixed_t<sign, mbits, fbits>> in,
+         bus<T, bits> out)
+  {
+    part({ in },
+         { out },
+         [=] (uint64_t)
+         {
+           for(unsigned int c = 0; c < bits; c++)
+             in[c] = out[c];
+         }, "assign");
+  }
+
   template <typename B, typename T>
   void reg(wire<B> clk,
            wire<B> reset,
@@ -88,10 +120,10 @@ namespace hdl
          { dout },
          [=] (uint64_t)
          {
-           if(reset == static_cast<B>(0))
-             dout = 0;
-           else if(clk.event() and clk == static_cast<B>(1)
-                   and enable == static_cast<B>(1))
+           if(reset == static_cast<B>(false))
+             dout = T();
+           else if(clk.event() and clk == static_cast<B>(true)
+                   and enable == static_cast<B>(true))
              dout = din;
          }, "reg");
   }
@@ -116,7 +148,7 @@ namespace hdl
          { out },
          [=] (uint64_t)
          {
-           out = !in;
+           out = ~in;
          }, "invert");
   }
   
@@ -189,130 +221,59 @@ namespace hdl
     invert(tmp, out);
   }
 
-  template <typename T, unsigned int bits>
-  void invert(bus<T, bits> in,
-              bus<T, bits> out)
-  {
-    static_assert(bits > 0, "bits > 0");
-    for(unsigned int c = 0; c < bits; c++)
-      invert(in[c], out[c]);
-  }
-
-  template <typename T, unsigned int bits>
-  void band(bus<T, bits> in1,
-            bus<T, bits> in2,
-            bus<T, bits> out)
-  {
-    static_assert(bits > 0, "bits > 0");
-    for(unsigned int c = 0; c < bits; c++)
-      band(in1[c], in2[c], out[c]);
-  }
-
-  template <typename T, unsigned int bits>
-  void bnand(bus<T, bits> in1,
-             bus<T, bits> in2,
-             bus<T, bits> out)
-  {
-    bus<T, bits> tmp;
-    band(in1, in2, tmp);
-    invert(tmp, out);
-  }
-
-  template <typename T, unsigned int bits>
-  void bor(bus<T, bits> in1,
-           bus<T, bits> in2,
-           bus<T, bits> out)
-  {
-    static_assert(bits > 0, "bits > 0");
-    for(unsigned int c = 0; c < bits; c++)
-      bor(in1[c], in2[c], out[c]);
-  }
-
-  template <typename T, unsigned int bits>
-  void bnor(bus<T, bits> in1,
-            bus<T, bits> in2,
-            bus<T, bits> out)
-  {
-    bus<T, bits> tmp;
-    bor(in1, in2, tmp);
-    invert(tmp, out);
-  }
-
-  template <typename T, unsigned int bits>
-  void bxor(bus<T, bits> in1,
-            bus<T, bits> in2,
-            bus<T, bits> out)
-  {
-    static_assert(bits > 0, "bits > 0");
-    for(unsigned int c = 0; c < bits; c++)
-      bxor(in1[c], in2[c], out[c]);
-  }
-
-  template <typename T, unsigned int bits>
-  void bxnor(bus<T, bits> in1,
-             bus<T, bits> in2,
-             bus<T, bits> out)
-  {
-    bus<T, bits> tmp;
-    bxor(in1, in2, tmp);
-    invert(tmp, out);
-  }
-
-  template <typename T, unsigned int bits>
-  void add(bus<T, bits> in1,
-           bus<T, bits> in2,
-           bus<T, bits> out,
+  template <typename T = bool, bool sign, bool sign2, bool sign3,
+            unsigned int mbits, unsigned int fbits>
+  void add(wire<fixed_t<sign, mbits, fbits>> in1,
+           wire<fixed_t<sign2, mbits, fbits>> in2,
+           wire<fixed_t<sign3, mbits, fbits>> out,
            wire<T> carryin = wire<T>(0),
            wire<T> carryout = wire<T>())
   {
-    static_assert(bits > 0, "bits > 0");
+    static_assert(mbits + fbits > 0, "mbits + fbits > 0");
     part({ in1, in2, carryin },
          { out, carryout },
          [=] (uint64_t)
          {
-           T carry = carryin;
-           for(unsigned int c = 0; c < bits; c++)
-             {
-               out[c] = carry ^ (in1[c] ^ in2[c]);
-               carry = (in1[c] & in2[c])
-                 | (carry & (in1[c] | in2[c]));
-             }
+           bool carry = carryin;
+           out = in1.get().sum(in2.get(), carry);
            carryout = carry;
          }, "add");
   }
 
-  template <typename T, unsigned int bits>
-  void negative(bus<T, bits> in,
-                bus<T, bits> out)
+  template <unsigned int mbits, unsigned int fbits>
+  void negative(wire<fixed_t<true, mbits, fbits>> in,
+                wire<fixed_t<true, mbits, fbits>> out)
   {
-    static_assert(bits > 0, "bits > 0");
-    bus<T, bits> inv;
-    bus<T, bits> one = 1;
-    invert(in, inv);
-    add(inv, one, out, wire<T>(0), wire<T>());
+    part({ in },
+         { out },
+         [=] (uint64_t)
+         {
+           out = -in;
+         }, "negative");
   }
 
-  template <typename T, unsigned int bits>
-  void sub(bus<T, bits> in1,
-           bus<T, bits> in2,
-           bus<T, bits> out,
+  template <typename T = bool, bool sign, bool sign2, bool sign3,
+            unsigned int mbits, unsigned int fbits>
+  void sub(wire<fixed_t<sign, mbits, fbits>> in1,
+           wire<fixed_t<sign2, mbits, fbits>> in2,
+           wire<fixed_t<sign3, mbits, fbits>> out,
            wire<T> borrowin = wire<T>(0),
            wire<T> borrowout = wire<T>())
   {
-    static_assert(bits > 0, "bits > 0");
-    bus<T, bits> in2inv;
-    wire<T> carryin;
-    wire<T> carryout;
-    invert(in2, in2inv);
-    add(in1, in2inv, out, carryin, carryout);
-    invert(borrowin, carryin);
-    invert(carryout, borrowout);
+    static_assert(mbits + fbits > 0, "mbits + fbits > 0");
+    part({ in1, in2, borrowin },
+         { out, borrowout },
+         [=] (uint64_t)
+         {
+           T borrow = borrowin;
+           out = in1.get().diff(in2.get(), borrow);
+           borrowout = borrow;
+         }, "sub");
   }
 
-  template <bool signed_arith = true,
-            typename B, typename T, unsigned int bits>
-  void compare(bus<T, bits> in1,
-               bus<T, bits> in2,
+  template <typename B, bool sign, unsigned int mbits, unsigned int fbits>
+  void compare(wire<fixed_t<sign, mbits, fbits>> in1,
+               wire<fixed_t<sign, mbits, fbits>> in2,
                wire<B> equal,
                wire<B> smaller = wire<B>(),
                wire<B> greater = wire<B>(),
@@ -320,277 +281,145 @@ namespace hdl
                wire<B> smallerequal = wire<B>(),
                wire<B> greaterequal = wire<B>())
   {
-    bus<T, bits> diff;
-    wire<T> borrow;
-    sub(in1, in2, diff, wire<T>(0), borrow);
-
-    part({ diff, borrow },
-         { equal, smaller },
+    part({ in1, in2 },
+         { equal, smaller, greater, unequal, smallerequal, greaterequal },
          [=] (uint64_t)
          {
-           bool all_zero = true;
-           for(unsigned int c = 0; c < bits; c++)
-             if(diff.at(c) != 0)
-               {
-                 all_zero = false;
-                 break;
-               }
-           if(all_zero)
-             equal = 1;
-           else
-             equal = 0;
-
-           if(signed_arith)
-             smaller = diff.at(bits-1);
-           else
-             smaller = borrow; // ?
+           equal = in1 == in2;
+           smaller = in1 < in2;
+           greater = in2 > in2;
+           unequal = in1 != in2;
+           smallerequal = in1 <= in2;
+           greaterequal = in1 >= in2;
          }, "compare");
-
-    invert(equal, unequal);
-    bor(equal, smaller, smallerequal);
-    invert(smallerequal, greater);
-    invert(smaller, greaterequal);
   }
 
-  template <typename T, unsigned int in_bits, unsigned int out_bits>
-  void truncate(bus<T, in_bits> in,
-                bus<T, out_bits> out)
+  template <bool sign, unsigned int mbits1, unsigned int mbits2, unsigned int fbits1, unsigned int fbits2>
+  void resize(wire<fixed_t<sign, mbits1, fbits1>> in,
+              wire<fixed_t<sign, mbits2, fbits2>> out)
   {
-    static_assert(in_bits > 0, "in_bits > 0");
-    static_assert(out_bits > 0, "out_bits > 0");
-    if(out_bits < in_bits)
-      {
-        part({ in },
-             { out },
-             [=] (uint64_t)
-             {
-               for(unsigned int c = 0; c < out_bits; c++)
-                 out[out_bits-c-1] = in[in_bits-c-1];
-             }, "truncate");
-      }
-    else if(out_bits > in_bits)
-      part({ in },
-           { out },
-           [=] (uint64_t)
-           {
-             for(unsigned int c = 0; c < in_bits; c++)
-               out[out_bits-c-1] = in[in_bits-c-1];
-             for(unsigned int c = 0; c < out_bits-in_bits; c++)
-               out[c] = 0;
-           }, "truncate");
-    else
-      part({ in },
-           { out },
-           [=] (uint64_t)
-           {
-             for(unsigned int c = 0; c < in_bits; c++)
-               out[c] = in[c];
-           }, "truncate");
-  }    
-
-  template <typename T, unsigned int in_bits, unsigned int out_bits>
-  void round(bus<T, in_bits> in,
-             bus<T, out_bits> out)
-  {
-    // TODO: real rounding
-    truncate(in, out);
-  }     
-
-  template <bool signed_arith = true,
-            typename T, unsigned int in_bits, unsigned int out_bits>
-  void extend(bus<T, in_bits> in,
-              bus<T, out_bits> out)
-  {
-    static_assert(out_bits >= in_bits, "");
     part({ in },
          { out },
          [=] (uint64_t)
          {
-           for(unsigned int c = 0; c < in_bits; c++)
-             out[c] = in[c];
-           for(unsigned int c = 0; c < out_bits-in_bits; c++)
-             if(signed_arith)
-               out[in_bits+c] = in[in_bits-1];
-           else
-               out[in_bits+c] = 0;
-         }, "extend");
+           out = in.get().template resize<mbits2, fbits2>();
+         }, "resize");
   }
 
-  template <bool signed_arith = true,
-            typename T, unsigned int bits>
-  void barrel_shift_fixed(bus<T, bits> input,
-                          int64_t amount,
-                          bus<T, bits> output)
+  template <bool sign, unsigned int mbits1, unsigned int mbits2, unsigned int fbits1, unsigned int fbits2>
+  void round(wire<fixed_t<sign, mbits1, fbits1>> in,
+             wire<fixed_t<sign, mbits2, fbits2>> out)
+  {
+    // TODO: real rounding
+    resize(in, out);
+  }
+
+  template <bool sign, unsigned int mbits, unsigned int fbits>
+  void barrel_shift_fixed(wire<fixed_t<sign, mbits, fbits>> input,
+                          int amount,
+                          wire<fixed_t<sign, mbits, fbits>> output)
   {
     part({ input },
          { output },
          [=] (uint64_t)
          {
-           int64_t a = amount;
-           if(a == 0)
-             output = input;
-           else if(a > 0)
-             {
-               for(unsigned int c = 0; c < a; c++)
-                 output[c] = 0;
-               for(unsigned int c = 0; c < bits-a; c++)
-                 output[a+c] = input[c];
-             }
-           else if(a < 0)
-             {
-               a = -a;
-               for(unsigned int c = 0; c < bits-a; c++)
-                 output[c] = input[a+c];
-               for(unsigned int c = 0; c < a; c++)
-                 if(signed_arith)
-                   output[bits-c-1] = input[bits-1];
-                 else
-                   output[bits-c-1] = 0;
-             }
+           output = input << amount;
          }, "barrel_shift_fixed");
   }
 
-  template <bool signed_arith = true,
-            typename T, unsigned int bits>
-  void barrel_shift(bus<T, bits> input,
-                    bus<T, log2ceil(bits)> amount,
-                    bus<T, bits> output)
+  template <bool sign, unsigned int mbits, unsigned int fbits, bool sign2>
+  void barrel_shift(wire<fixed_t<sign, mbits, fbits>> input,
+                    wire<fixed_t<sign2, log2ceil(mbits+fbits)+1, 0>> amount,
+                    wire<fixed_t<sign, mbits, fbits>> output)
   {
     part({ input, amount },
          { output },
          [=] (uint64_t)
          {
-           int64_t a = amount;
-           if(a == 0)
-             output = input;
-           else if(a > 0)
-             {
-               for(unsigned int c = 0; c < a; c++)
-                 output[c] = 0;
-               for(unsigned int c = 0; c < bits-a; c++)
-                 output[a+c] = input[c];
-             }
-           else if(a < 0)
-             {
-               a = -a;
-               for(unsigned int c = 0; c < bits-a; c++)
-                 output[c] = input[a+c];
-               for(unsigned int c = 0; c < a; c++)
-                 if(signed_arith)
-                   output[bits-c-1] = input[bits-1];
-                 else
-                   output[bits-c-1] = 0;
-             }
+           output = input << amount;
          }, "barrel_shift");
   }
 
-  template <bool signed_arith = true, typename T, unsigned int bits>
-  void mul(bus<T, bits> in1,
-           bus<T, bits> in2,
-           bus<T, 2*bits> out)
+  template <bool sign, unsigned int mbits, unsigned int fbits,
+            unsigned int mbits2, unsigned int fbits2>
+  void mul(wire<fixed_t<sign, mbits, fbits>> in1,
+           wire<fixed_t<sign, mbits2, fbits2>> in2,
+           wire<fixed_t<sign, mbits+mbits2, fbits+fbits2>> out)
   {
-    // sign extend
-    bus<T, 2*bits> in1_extend;
-    extend<signed_arith>(in1, in1_extend);
-
-    // shift
-    std::array<bus<T, 2*bits>, bits> tmp;
-    for(unsigned int c = 0; c < bits; c++)
-      barrel_shift_fixed<signed_arith>(in1_extend, c, tmp[c]);
-
-    // and
-    std::array<bus<T, 2*bits>, bits> tmp2;
-    std::array<bus<T, 2*bits>, bits> sum;
-    for(unsigned int c = 0; c < bits; c++)
-      {
-        part({ tmp[c], in2[c] },
-             { tmp2[c] },
-             [=] (uint64_t)
-             {
-               for(unsigned int d = 0; d < 2*bits; d++)
-                 tmp2[c][d] = tmp[c][d] & in2[c];
-             }, "mul_and");
-      }
-
-    // sum
-    assign(tmp[0], sum[0]);
-    for(unsigned int c = 0; c < bits-1; c++)
-      if(c < bits-2 || !signed_arith)
-        add(sum[c], tmp2[c+1], sum[c+1]);
-      else
-        sub(sum[c], tmp2[c+1], sum[c+1]);
-    assign(sum[bits-1], out);
+    part({ in1, in2 },
+         { out },
+         [=] (uint64_t)
+         {
+           out = in1 * in2;
+         }, "mul");
   }
 
-  template <typename B, typename T, unsigned int bits>
+  template <typename B, bool sign, unsigned int mbits, unsigned int fbits>
   void integrator(wire<B> clk,
                   wire<B> reset,
                   wire<B> enable,
-                  bus<T, bits> in,
-                  bus<T, bits> out)
+                  wire<fixed_t<sign, mbits, fbits>> in,
+                  wire<fixed_t<sign, mbits, fbits>> out)
   {
-    static_assert(bits > 0, "bits > 0");
-    bus<T, bits> tmp;
+    wire<fixed_t<sign, mbits, fbits>> tmp;
     add(out, in, tmp);
     reg(clk, reset, enable, tmp, out);
   }
 
-  template <typename B, typename T, unsigned int bits>
+  template <typename B, bool sign, unsigned int mbits, unsigned int fbits>
   void differentiator(wire<B> clk,
                       wire<B> reset,
                       wire<B> enable,
-                      bus<T, bits> in,
-                      bus<T, bits> out)
+                      wire<fixed_t<sign, mbits, fbits>> in,
+                      wire<fixed_t<sign, mbits, fbits>> out)
   {
-    static_assert(bits > 0, "bits > 0");
-    bus<T, bits> tmp;
+    wire<fixed_t<sign, mbits, fbits>> tmp;
     reg(clk, reset, enable, in, tmp);
     sub(in, tmp, out);
   }
 
-  template <typename B, typename T, unsigned int bits>
+  template <typename B, bool sign, unsigned int bits>
   void counter(wire<B> clk,
                wire<B> reset,
                wire<B> enable,
-               bus<T, bits> out)
+               wire<fixed_t<sign, bits, 0>> out)
   {
-    static_assert(bits > 0, "bits > 0");
-    bus<T, bits> one = 1;
+    wire<fixed_t<sign, bits, 0>> one(1u);
     integrator(clk, reset, enable, one, out);
   }
 
-  template <bool usep, bool usei, bool used, int pre_gain, unsigned int int_bits, bool signed_arith = true,
-            typename B, typename T, unsigned int bits>
+  template <bool usep, bool usei, bool used, int pre_gain,
+            unsigned int int_mbits, unsigned int int_fbits,
+            bool sign, unsigned int mbits, unsigned int fbits,
+            typename B>
   void pidctl(wire<B> clk,
               wire<B> reset,
               wire<B> enable,
-              bus<T, bits> input,
-              bus<T, log2ceil(int_bits)> pgain,
-              bus<T, log2ceil(int_bits)> igain,
-              bus<T, log2ceil(int_bits)> dgain,
-              bus<T, bits> output)
+              wire<fixed_t<sign, mbits, fbits>> input,
+              wire<fixed_t<true, log2ceil(int_mbits+int_fbits)+1, 0>> pgain,
+              wire<fixed_t<true, log2ceil(int_mbits+int_fbits)+1, 0>> igain,
+              wire<fixed_t<true, log2ceil(int_mbits+int_fbits)+1, 0>> dgain,
+              wire<fixed_t<sign, mbits, fbits>> output)
   {
-    static_assert(bits > 1, "bits > 1");
-    
     // pre-gain
-    bus<T, int_bits> input2, input3;
-    truncate(input, input3);
-    barrel_shift_fixed(input3, pre_gain, input2);
+    wire<fixed_t<sign, int_mbits, int_fbits>> input2, input3;
+    resize(input, input2);
+    barrel_shift_fixed(input2, pre_gain, input3);
 
     // gains
-    bus<T, int_bits> input2p, input2i, input2d;
-    barrel_shift(input2, pgain, input2p);
-    barrel_shift(input2, igain, input2i);
-    barrel_shift(input2, dgain, input2d);
+    wire<fixed_t<sign, int_mbits, int_fbits>> inputp, inputi, inputd;
+    barrel_shift(input3, pgain, inputp);
+    barrel_shift(input3, igain, inputi);
+    barrel_shift(input3, dgain, inputd);
 
     // controller
-    bus<T, int_bits> resultp, resulti, resultd;
-    reg(clk, reset, enable, input2p, resultp);            // P
-    integrator(clk, reset, enable, input2i, resulti);     // I
-    differentiator(clk, reset, enable, input2d, resultd); // D
+    wire<fixed_t<sign, int_mbits, int_fbits>> resultp, resulti, resultd;
+    reg(clk, reset, enable, inputp, resultp);            // P
+    integrator(clk, reset, enable, inputi, resulti);     // I
+    differentiator(clk, reset, enable, inputd, resultd); // D
 
-    bus<T, int_bits> sum;
     // add
+    wire<fixed_t<sign, int_mbits, int_fbits>> sum;
     if(usep && !usei && !used)
       assign(resultp, sum);
     else if(!usep && usei && !used)
@@ -605,117 +434,101 @@ namespace hdl
       add(resulti, resultd, sum);
     else if(usep && usei && used)
       {
-        bus<T, int_bits> tmp;
+        wire<fixed_t<sign, int_mbits, int_fbits>> tmp;
         add(resultp, resulti, tmp);
         add(resultd, tmp, sum);
       }
     round(sum, output);
   }
 
-  template <typename T, unsigned int phase_bits, unsigned int bits>
-  void sincos(bus<T, phase_bits> phase,
-              bus<T, bits> sin,
-              bus<T, bits> cos)
+  template<bool sign, unsigned int phase_mbits, unsigned int phase_fbits,
+           unsigned int mbits, unsigned int fbits>
+  void sincos(wire<fixed_t<sign, phase_mbits, phase_fbits>> phase,
+              wire<fixed_t<true, mbits, fbits>> sin_out,
+              wire<fixed_t<true, mbits, fbits>> cos_out)
   {
     part({ phase },
-         { sin, cos },
+         { sin_out, cos_out },
          [=] (uint64_t)
          {
-           uint64_t iphase = phase;
-           long double dphase = static_cast<long double>(iphase)
-             /std::pow(2.l, phase_bits)*2.l*std::acos(-1.l);
-           long double dsin = std::sin(dphase);
-           long double dcos = std::cos(dphase);
-           int64_t isin = dsin*(std::pow(2.l, bits-1)-1);
-           int64_t icos = dcos*(std::pow(2.l, bits-1)-1);
-           sin = isin;
-           cos = icos;
-         });
+           sin_out = sin(phase.get());
+           cos_out = cos(phase.get());
+         }, "sincos");
   }
 
-  template <typename B, typename T, unsigned int freq_bits, unsigned int bits>
+  template<typename B, unsigned int freq_bits,
+           unsigned int mbits, unsigned int fbits>
   void nco(wire<B> clk,
            wire<B> reset,
            wire<B> enable,
-           bus<T, freq_bits> freq,
-           bus<T, freq_bits> mod,
-           bus<T, bits> sine,
-           bus<T, bits> cosine,
-           bus<T, bits> saw)
+           wire<fixed_t<false, 0, freq_bits>> freq, // f/fs
+           wire<fixed_t<false, 0, freq_bits>> mod,
+           wire<fixed_t<true, mbits, fbits>> sine,
+           wire<fixed_t<true, mbits, fbits>> cosine,
+           wire<fixed_t<false, 0, mbits+fbits>> saw)
   {
-    bus<T, freq_bits> phase;
-    bus<T, freq_bits> phase2;
+    wire<fixed_t<false, 0, freq_bits>> phase, phase2;
     integrator(clk, reset, enable, freq, phase);
     add(phase, mod, phase2);
     sincos(phase2, sine, cosine);
-    truncate(phase2, saw);
+    resize(phase2, saw);
   }
 
-  template<int pre_gain, unsigned int int_bits,
-           typename B, typename T, unsigned int bits, unsigned int freq_bits>
+  template<int pre_gain, unsigned int int_mbits, unsigned int int_fbits,
+           typename B, unsigned int mbits, unsigned int fbits, unsigned int freq_bits>
   void pll(wire<B> clk,
            wire<B> reset,
            wire<B> enable,
-           bus<T, bits> input,
-           bus<T, freq_bits> freq_start,
-           bus<T, log2ceil(int_bits)> pgain,
-           bus<T, log2ceil(int_bits)> igain,
-           bus<T, freq_bits> freq_out,
-           bus<T, bits> i,
-           bus<T, bits> q,
-           bus<T, bits> error)
+           wire<fixed_t<true, mbits, fbits>> input,
+           wire<fixed_t<false, 0, freq_bits>> freq_start, // f/fs
+           wire<fixed_t<true, log2ceil(int_mbits+int_fbits)+1, 0>> pgain,
+           wire<fixed_t<true, log2ceil(int_mbits+int_fbits)+1, 0>> igain,
+           wire<fixed_t<false, 0, freq_bits>> freq_out, // f/fs
+           wire<fixed_t<true, 2*mbits, 2*fbits>> i,
+           wire<fixed_t<true, 2*mbits, 2*fbits>> q,
+           wire<fixed_t<true, 2*mbits, 2*fbits>> error)
   {
-    bus<T, bits> sine;
-    bus<T, bits> cosine;
+    wire<fixed_t<true, mbits, fbits>> sine, cosine;
     nco(clk,
         reset,
         enable,
         freq_out,
-        bus<T, freq_bits>(0),
+        wire<fixed_t<false, 0, freq_bits>>(0.),
         sine,
         cosine,
-        bus<T, bits>());
+        wire<fixed_t<false, 0, mbits+fbits>>());
 
-    bus<T, int_bits> i2;
-    bus<T, int_bits> q2;
-    mul<true>(input, sine, i2);
-    mul<true>(input, cosine, q2);
-    truncate(i2, i);
-    truncate(q2, q);
+    mul(input, sine, i);
+    mul(input, cosine, q);
 
-    bus<T, bits> pidout;
-    bus<T, freq_bits> pidout2;
+    wire<fixed_t<true, 2*mbits, 2*fbits>> pidout;
+    pidctl<true, true, false, pre_gain, int_mbits, int_fbits>
+      (clk, reset, enable, error, pgain, igain,
+       wire<fixed_t<true, log2ceil(int_mbits+int_fbits)+1, 0>>(0), pidout);
 
-    pidctl<true, true, false,
-           pre_gain, int_bits>(clk,
-                               reset,
-                               enable,
-                               error,
-                               pgain,
-                               igain,
-                               bus<T, log2ceil(int_bits)>(0),
-                               pidout);
-
-    truncate(pidout, pidout2);
-
+    wire<fixed_t<true, 0, freq_bits>> pidout2;
+    resize(pidout, pidout2);
     add(pidout2, freq_start, freq_out);
   }
 
-  template<unsigned int n, unsigned int r, bool signed_arith = true,
-           typename B, typename T, unsigned int in_bits, unsigned int out_bits>
+  template<unsigned int n, unsigned int r, bool sign,
+           unsigned int mbits, unsigned int in_fbits,
+           unsigned int out_fbits, typename B>
   void cic_down(wire<B> clk,
                 wire<B> clk2,
                 wire<B> reset,
                 wire<B> enable,
-                bus<T, in_bits> input,
-                bus<T, out_bits> output)
+                wire<fixed_t<sign, mbits, in_fbits>> input,
+                wire<fixed_t<sign, mbits, out_fbits>> output)
   {
-    const unsigned int bits2 = n*r + in_bits;
-    std::array<bus<T, bits2>, n+1> ints;
-    bus<T, out_bits> tmp;
-    std::array<bus<T, out_bits>, n+1> combs;
+    const unsigned int fbits2 = n*r + in_fbits;
+    wire<fixed_t<sign, mbits, fbits2>> input2;
+    std::array<wire<fixed_t<sign, mbits, fbits2>>, n+1> ints;
+    wire<fixed_t<sign, mbits, out_fbits>> tmp;
+    std::array<wire<fixed_t<sign, mbits, out_fbits>>, n+1> combs;
 
-    extend<signed_arith>(input, ints.at(0));
+    resize(input, input2);
+    barrel_shift_fixed(input2, -static_cast<int>(n*r), ints.at(0));
 
     for(unsigned int c = 0; c < n; c++)
       integrator(clk,
@@ -724,7 +537,7 @@ namespace hdl
                  ints.at(c),
                  ints.at(c+1));
 
-    truncate(ints.at(n), tmp);
+    resize(ints.at(n), tmp);
 
     reg(clk2,
         reset,
@@ -739,22 +552,24 @@ namespace hdl
                      combs.at(c),
                      combs.at(c+1));
 
-    round(combs.at(n), output);
+    resize(combs.at(n), output);
   }
 
-  template<unsigned int n, unsigned int r, bool signed_arith = true,
-           typename B, typename T, unsigned int in_bits, unsigned int out_bits>
+  template<unsigned int n, unsigned int r, bool sign,
+           unsigned int mbits, unsigned int in_fbits,
+           unsigned int out_fbits, typename B>
   void cic_up(wire<B> clk,
               wire<B> clk2,
               wire<B> reset,
               wire<B> enable,
-              bus<T, in_bits> input,
-              bus<T, out_bits> output)
+              wire<fixed_t<sign, mbits, in_fbits>> input,
+              wire<fixed_t<sign, mbits, out_fbits>> output)
   {
-    std::array<bus<T, in_bits>, n+1> combs;
-    const unsigned int bits2 = n*r + in_bits;
-    bus<T, bits2> tmp;
-    std::array<bus<T, bits2>, n+1> ints;
+    std::array<wire<fixed_t<sign, mbits, in_fbits>>, n+1> combs;
+    const unsigned int fbits2 = n*r + in_fbits;
+    wire<fixed_t<sign, mbits, fbits2>> tmp;
+    wire<fixed_t<sign, mbits, fbits2>> tmp2;
+    std::array<wire<fixed_t<sign, mbits, fbits2>>, n+1> ints;
 
     assign(input, combs.at(0));
 
@@ -765,12 +580,13 @@ namespace hdl
                      combs.at(c),
                      combs.at(c+1));
 
-    extend<signed_arith>(combs.at(n), tmp);
+    resize(combs.at(n), tmp);
+    barrel_shift_fixed(tmp, -static_cast<int>(n*r), tmp2);
 
     reg(clk2,
         reset,
         enable,
-        tmp,
+        tmp2,
         ints.at(0));
 
     for(unsigned int c = 0; c < n; c++)
@@ -780,7 +596,7 @@ namespace hdl
                  ints.at(c),
                  ints.at(c+1));
 
-    round(ints.at(n), output);
+    resize(ints.at(n), output);
   }
 
   template<unsigned int bits,
@@ -788,27 +604,27 @@ namespace hdl
   void pwm(wire<T> clk,
            wire<T> reset,
            wire<T> enable,
-           bus<T, log2ceil(bits)> ratio,
+           wire<fixed_t<false, log2ceil(bits+1), 0>> ratio,
            wire<T> output)
   {
-    bus<T, log2ceil(bits)> cnt_out;
+    wire<fixed_t<false, log2ceil(bits+1), 0>> cnt_out;
     wire<T> cnt_rst;
 
     counter(clk,
-            reset,
+            cnt_rst,
             enable,
             cnt_out);
 
     wire<T> equal;
     compare(cnt_out,
-            bus<T, log2ceil(bits)>(bits),
+            wire<fixed_t<false, log2ceil(bits+1), 0>>(bits),
             equal);
 
     wire<T> nreset;
     invert(reset, nreset);
     bnor(equal, nreset, cnt_rst);
 
-    compare<false>(cnt_out, ratio, wire<T>(), output);
+    compare(cnt_out, ratio, wire<T>(), output);
   }
 
   template<unsigned int div,
@@ -818,7 +634,7 @@ namespace hdl
               wire<B> enable,
               wire<B> clk_out)
   {
-    bus<B, log2ceil(div)> ratio(div/2);
+    wire<fixed_t<false, log2ceil(div+1), 0>> ratio(div/2);
     pwm<div>(clk,
              reset,
              enable,
