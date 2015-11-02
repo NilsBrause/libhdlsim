@@ -268,31 +268,31 @@ namespace hdl
 
     // modifying operators
 
-#define OPERATOR3(OP)                                   \
+#define OPERATOR3(OP, OP2)                              \
     template <typename U>                               \
     const wire<T> &operator OP(const wire<U> &w2) const \
     {                                                   \
-      w->set(w->get() OP w2.get());                     \
+      w->set(w->get() OP2 w2.get());                    \
       return *this;                                     \
     }                                                   \
                                                         \
     template <typename U>                               \
     const wire<T> &operator OP(const U &t) const        \
     {                                                   \
-      w->set(w->get() OP t);                            \
+      w->set(w->get() OP2 static_cast<T>(t));           \
       return *this;                                     \
     }
 
-    OPERATOR3(&=)
-    OPERATOR3(|=)
-    OPERATOR3(^=)
-    OPERATOR3(+=)
-    OPERATOR3(-=)
-    OPERATOR3(*=)
-    OPERATOR3(/=)
-    OPERATOR3(%=)
-    OPERATOR3(<<=)
-    OPERATOR3(>>=)
+    OPERATOR3(&=, &)
+    OPERATOR3(|=, |)
+    OPERATOR3(^=, ^)
+    OPERATOR3(+=, +)
+    OPERATOR3(-=, -)
+    OPERATOR3(*=, *)
+    OPERATOR3(/=, /)
+    OPERATOR3(%=, %)
+    OPERATOR3(<<=, <<)
+    OPERATOR3(>>=, >>)
   };
 
   template <typename T, unsigned int width>
