@@ -629,6 +629,8 @@ public:
         tmp.value.at(c) = awc(tmp.value.at(c), lsum, carry);
         tmp.value.at(c+1) = awc(tmp.value.at(c+1), hsum, carry);
       }
+
+    tmp <<= sign ? 1 : 0;
     
     return tmp.template resize<mbits+mbits2, fbits+fbits2>();
   }
