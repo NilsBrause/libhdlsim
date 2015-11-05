@@ -388,7 +388,7 @@ namespace hdl
     integrator(clk, reset, enable, one, out);
   }
 
-  template <bool usep, bool usei, bool used, int pre_gain,
+  template <bool usep, bool usei, bool used,
             unsigned int int_mbits, unsigned int int_fbits,
             bool sign, unsigned int mbits, unsigned int fbits,
             typename B>
@@ -401,16 +401,15 @@ namespace hdl
               wire<fixed_t<true, log2ceil(int_mbits+int_fbits)+1, 0>> dgain,
               wire<fixed_t<sign, mbits, fbits>> output)
   {
-    // pre-gain
-    wire<fixed_t<sign, int_mbits, int_fbits>> input2, input3;
+    // resize input ti int_*bits
+    wire<fixed_t<sign, int_mbits, int_fbits>> input2;
     resize(input, input2);
-    barrel_shift_fixed(input2, pre_gain, input3);
 
     // gains
     wire<fixed_t<sign, int_mbits, int_fbits>> inputp, inputi, inputd;
-    barrel_shift(input3, pgain, inputp);
-    barrel_shift(input3, igain, inputi);
-    barrel_shift(input3, dgain, inputd);
+    barrel_shift(input2, pgain, inputp);
+    barrel_shift(input2, igain, inputi);
+    barrel_shift(input2, dgain, inputd);
 
     // controller
     wire<fixed_t<sign, int_mbits, int_fbits>> resultp, resulti, resultd;
@@ -451,8 +450,8 @@ namespace hdl
          { sin_out, cos_out },
          [=] (uint64_t)
          {
-           sin_out = sin(phase.get());
-           cos_out = cos(phase.get());
+           sin_out = sin(phase.get()).template resize<mbits, fbits>();
+           cos_out = cos(phase.get()).template resize<mbits, fbits>();
          }, "sincos");
   }
 
@@ -465,7 +464,7 @@ namespace hdl
            wire<fixed_t<false, 0, freq_bits>> mod,
            wire<fixed_t<true, mbits, fbits>> sine,
            wire<fixed_t<true, mbits, fbits>> cosine,
-           wire<fixed_t<false, 0, mbits+fbits>> saw)
+           wire<fixed_t<false, mbits, fbits>> saw)
   {
     wire<fixed_t<false, 0, freq_bits>> phase, phase2;
     integrator(clk, reset, enable, freq, phase);
@@ -474,7 +473,7 @@ namespace hdl
     resize(phase2, saw);
   }
 
-  template<int pre_gain, unsigned int int_mbits, unsigned int int_fbits,
+  template<unsigned int int_mbits, unsigned int int_fbits,
            typename B, unsigned int mbits, unsigned int fbits, unsigned int freq_bits>
   void pll(wire<B> clk,
            wire<B> reset,
@@ -502,7 +501,7 @@ namespace hdl
     mul(input, cosine, q);
 
     wire<fixed_t<true, 2*mbits, 2*fbits>> pidout;
-    pidctl<true, true, false, pre_gain, int_mbits, int_fbits>
+    pidctl<true, true, false, int_mbits, int_fbits>
       (clk, reset, enable, error, pgain, igain,
        wire<fixed_t<true, log2ceil(int_mbits+int_fbits)+1, 0>>(0), pidout);
 

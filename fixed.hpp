@@ -683,6 +683,12 @@ public:
     return tmp;
   }
 
+  template <unsigned int mbits2, unsigned int fbits2>
+  inline void resize(fixed_t<sign, mbits2, fbits2> &target)
+  {
+    target = resize<mbits2, fbits2>();
+  }
+
   std::string bin() const
   {
     std::string result;
