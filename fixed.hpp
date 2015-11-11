@@ -287,6 +287,11 @@ public:
         value[d] &= power<word_t>(2, word_size)-1;
       }
 
+#ifdef SYMMETRIC
+    if(asymmetric())
+      set(0, true);
+#endif
+
     return *this;
   }
 
@@ -315,6 +320,11 @@ public:
           value[d-amount_words-1] >> (word_size - amount_bits) : 0;
         tmp.value[d] &= power<word_t>(2, word_size)-1;
       }
+
+#ifdef SYMMETRIC
+    if(tmp.asymmetric())
+      tmp.set(0, true);
+#endif
 
     return tmp;
   }
@@ -502,6 +512,12 @@ public:
     for(unsigned int c = 0; c < words; c++)
       value[c] = awc(value[c], x.value[c], carry);
     signext();
+
+#ifdef SYMMETRIC
+    if(asymmetric())
+      set(0, true);
+#endif
+
     return *this;
   }
 
@@ -512,6 +528,12 @@ public:
     for(unsigned int c = 0; c < words; c++)
       tmp.value[c] = awc(value[c], x.value[c], carry);
     tmp.signext();
+
+#ifdef SYMMETRIC
+    if(tmp.asymmetric())
+      tmp.set(0, true);
+#endif
+
     return tmp;
   }
 
@@ -568,6 +590,8 @@ public:
   inline fixed_t<sign, mbits, fbits> operator-() const
   {
     assert(sign);
+    if(asymmetric())
+      return ~*this;
     static fixed_t<sign, mbits, fbits> zero;
     bool borrow = false;
     return zero.diff(*this, borrow);
@@ -631,8 +655,15 @@ public:
       }
 
     tmp <<= sign ? 1 : 0;
-    
-    return tmp.template resize<mbits+mbits2, fbits+fbits2>();
+
+    auto tmp2 = tmp.template resize<mbits+mbits2, fbits+fbits2>();
+
+#ifdef SYMMETRIC
+    if(tmp2.asymmetric())
+      tmp2.set(0, true);
+#endif
+
+    return tmp2;
   }
 
   template <unsigned int mbits2, unsigned int fbits2>
@@ -651,6 +682,15 @@ public:
   inline bool negative() const
   {
     return at(bits-1) && sign;
+  }
+
+  inline bool asymmetric() const
+  {
+    if(!negative())
+      return false;
+    for(unsigned int c = 0; c < bits-2; c++)
+      if(at(bits-c-2)) return false;
+    return true;
   }
 
   template <unsigned int mbits2, unsigned int fbits2>
@@ -680,6 +720,12 @@ public:
         for(unsigned int c = 0; c < tmp.words; c++)
           tmp.value[c] = tmp2.value[c];
       }
+
+#ifdef SYMMETRIC
+    if(fbits2 < fbits && tmp.asymmetric())
+      tmp.set(0, true);
+#endif
+
     return tmp;
   }
 

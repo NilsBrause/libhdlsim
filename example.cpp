@@ -1,6 +1,7 @@
 #include <iostream>
 #include <tuple>
 
+#define SYMMETRIC
 #include <hdl.hpp>
 
 using namespace hdl;
