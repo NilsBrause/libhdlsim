@@ -77,6 +77,20 @@ namespace hdl
          }, "assign");
   }
 
+  template <bool sign1, bool sign2,
+            unsigned int mbits, unsigned int fbits>
+  typename std::enable_if<sign1 != sign2>::type
+  assign(wire<fixed_t<sign1, mbits, fbits>> in,
+              wire<fixed_t<sign2, mbits, fbits>> out)
+  {
+    part({ in },
+         { out },
+         [=] (uint64_t)
+         {
+           out = in;
+         }, "assign");
+  }
+
   template<typename T, bool sign, unsigned int bits,
            unsigned int mbits, unsigned int fbits>
   typename std::enable_if<mbits+fbits == bits>::type
@@ -138,6 +152,20 @@ namespace hdl
     static_assert(bits > 0, "bits > 0");
     for(unsigned int c = 0; c < bits; c++)
       reg(clk, reset, enable, din[c], dout[c]);
+  }
+
+  template <unsigned int dt, typename B, typename T>
+  void delay(wire<B> clk,
+             wire<B> reset,
+             wire<B> enable,
+             wire<T> din,
+             wire<T> dout)
+  {
+    std::array<wire<T>, dt+1> wires;
+    assign(din, wires[0]);
+    assign(wires[dt], dout);
+    for(unsigned int c = 0; c < dt; c++)
+      reg(clk, reset, enable, wires[c], wires[c+1]);
   }
 
   template <typename T>
@@ -464,13 +492,36 @@ namespace hdl
            wire<fixed_t<false, 0, freq_bits>> mod,
            wire<fixed_t<true, mbits, fbits>> sine,
            wire<fixed_t<true, mbits, fbits>> cosine,
-           wire<fixed_t<false, mbits, fbits>> saw)
+           wire<fixed_t<false, 0, freq_bits>> saw)
   {
     wire<fixed_t<false, 0, freq_bits>> phase, phase2;
     integrator(clk, reset, enable, freq, phase);
     add(phase, mod, phase2);
     sincos(phase2, sine, cosine);
     resize(phase2, saw);
+  }
+
+  template<typename B, unsigned int mbits, unsigned int fbits, unsigned int freq_bits>
+  void iq_demod(wire<B> clk,
+                wire<B> reset,
+                wire<B> enable,
+                wire<fixed_t<true, mbits, fbits>> input,
+                wire<fixed_t<false, 0, freq_bits>> freq, // f/fs
+                wire<fixed_t<true, 2*mbits, 2*fbits>> i,
+                wire<fixed_t<true, 2*mbits, 2*fbits>> q,
+                wire<fixed_t<false, 0, freq_bits>> phase)
+  {
+    wire<fixed_t<true, mbits, fbits>> sine, cosine;
+    nco(clk,
+        reset,
+        enable,
+        freq,
+        wire<fixed_t<false, 0, freq_bits>>(0.),
+        sine,
+        cosine,
+        phase);
+    mul(input, sine, i);
+    mul(input, cosine, q);
   }
 
   template<unsigned int int_mbits, unsigned int int_fbits,
@@ -487,18 +538,14 @@ namespace hdl
            wire<fixed_t<true, 2*mbits, 2*fbits>> q,
            wire<fixed_t<true, 2*mbits, 2*fbits>> error)
   {
-    wire<fixed_t<true, mbits, fbits>> sine, cosine;
-    nco(clk,
-        reset,
-        enable,
-        freq_out,
-        wire<fixed_t<false, 0, freq_bits>>(0.),
-        sine,
-        cosine,
-        wire<fixed_t<false, 0, mbits+fbits>>());
-
-    mul(input, sine, i);
-    mul(input, cosine, q);
+    iq_demod(clk,
+             reset,
+             enable,
+             input,
+             freq_out,
+             i,
+             q,
+             wire<fixed_t<false, 0, freq_bits>>());
 
     wire<fixed_t<true, 2*mbits, 2*fbits>> pidout;
     pidctl<true, true, false, int_mbits, int_fbits>
