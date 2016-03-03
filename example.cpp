@@ -2,7 +2,7 @@
 #include <tuple>
 
 #define SYMMETRIC
-#include <hdl.hpp>
+#include <hdlsim.hpp>
 
 using namespace hdl;
 

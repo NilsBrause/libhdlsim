@@ -1,5 +1,5 @@
-#ifndef HDL_HPP
-#define HDL_HPP
+#ifndef HDLSIM_HPP
+#define HDLSIM_HPP
 
 #include <base.hpp>
 #include <wire.hpp>
