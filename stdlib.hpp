@@ -454,7 +454,7 @@ namespace hdl
               wire<fixed_t<true, log2ceil(int_mbits+int_fbits)+1, 0>> pgain,
               wire<fixed_t<true, log2ceil(int_mbits+int_fbits)+1, 0>> igain,
               wire<fixed_t<true, log2ceil(int_mbits+int_fbits)+1, 0>> dgain,
-              wire<fixed_t<sign, mbits, fbits>> output)
+              wire<fixed_t<sign, int_mbits, int_fbits>> output)
   {
     // resize input ti int_*bits
     wire<fixed_t<sign, int_mbits, int_fbits>> input2;
@@ -473,26 +473,24 @@ namespace hdl
     differentiator(clk, reset, enable, inputd, resultd); // D
 
     // add
-    wire<fixed_t<sign, int_mbits, int_fbits>> sum;
     if(usep && !usei && !used)
-      assign(resultp, sum);
+      assign(resultp, output);
     else if(!usep && usei && !used)
-      assign(resulti, sum);
+      assign(resulti, output);
     else if(!usep && !usei && used)
-      assign(resultd, sum);
+      assign(resultd, output);
     else if(usep && usei && !used)
-      add(resultp, resulti, sum);
+      add(resultp, resulti, output);
     else if(usep && !usei && used)
-      add(resultp, resultd, sum);
+      add(resultp, resultd, output);
     else if(!usep && usei && used)
-      add(resulti, resultd, sum);
+      add(resulti, resultd, output);
     else if(usep && usei && used)
       {
         wire<fixed_t<sign, int_mbits, int_fbits>> tmp;
         add(resultp, resulti, tmp);
-        add(resultd, tmp, sum);
+        add(resultd, tmp, output);
       }
-    round(sum, output);
   }
 
   template<bool sign, unsigned int phase_mbits, unsigned int phase_fbits,
@@ -574,7 +572,7 @@ namespace hdl
              q,
              wire<fixed_t<false, 0, freq_bits>>());
 
-    wire<fixed_t<true, 2*mbits, 2*fbits>> pidout;
+    wire<fixed_t<true, int_mbits, int_fbits>> pidout;
     pidctl<true, true, false, int_mbits, int_fbits>
       (clk, reset, enable, error, pgain, igain,
        wire<fixed_t<true, log2ceil(int_mbits+int_fbits)+1, 0>>(0), pidout);
