@@ -229,7 +229,7 @@ public:
       tmp = *this;
 
     long double d = 0.5;
-    for(unsigned int c = (sign ? 1 : 0); c < bits; c++)
+    for(unsigned int c = sign ? 1 : 0; c < bits; c++)
       {
         unsigned int n = bits-c-1;
         if(d == 0) // due to finite precision of type
@@ -246,7 +246,7 @@ public:
         result = -result;
       }
 
-    for(unsigned int c = 0; c < mbits; c++)
+    for(unsigned int c = sign ? 1 : 0; c < mbits; c++)
       result *= 2;
     return result;
   }
@@ -266,7 +266,7 @@ public:
   template <unsigned int mbits2>
   inline fixed_t<sign, mbits, fbits> &operator<<=(const fixed_t<true, mbits2, 0> amount)
   {
-    return operator<<=(static_cast<int>(static_cast<long double>(amount)+.5l));
+    return operator<<=(static_cast<int>(static_cast<long double>(amount)));
   } 
 
   fixed_t<sign, mbits, fbits> &operator<<=(const int amount)
