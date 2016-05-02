@@ -19,12 +19,12 @@ env.Append(LINKFLAGS = [
     "-pthread",
     ""])
     
-env.SharedLibrary(target = 'hdl',
+env.SharedLibrary(target = 'hdlsim',
                   source = ["base.cpp",
                             "part.cpp",
                             "simulator.cpp"])
 
 env.Program(target = 'example',
             source = 'example.cpp',
-            LIBS = 'hdl',
+            LIBS = 'hdlsim',
             LIBPATH = '.')
