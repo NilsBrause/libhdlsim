@@ -307,6 +307,21 @@ namespace hdl
          }, "negative");
   }
 
+  template <unsigned int mbits, unsigned int fbits>
+  void absolute(wire<fixed_t<true, mbits, fbits>> in,
+                wire<fixed_t<true, mbits, fbits>> out)
+  {
+    part({ in },
+         { out },
+         [=] (uint64_t)
+         {
+           if(in < 0)
+             out = -in;
+           else
+             out = in;
+         }, "negative");
+  }
+
   template <typename T = bool, bool sign, bool sign2, bool sign3,
             unsigned int mbits, unsigned int fbits>
   void sub(wire<fixed_t<sign, mbits, fbits>> in1,
