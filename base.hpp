@@ -78,7 +78,7 @@ namespace hdl
     {
     private:
       static thread_local base* cur_part;
-      bool been_changed;
+      bool been_changed = false;
 
     protected:
       std::unordered_set<std::shared_ptr<base> > children;
