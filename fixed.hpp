@@ -58,13 +58,13 @@ class fixed_t
 private:
   const static unsigned int bits = mbits + fbits;
   static_assert(bits > 0, "mbits + fbits must be non-zero.");
-  
+
   // choose appropriate type
-  typedef typename std::conditional<sign, int64_t, uint64_t>::type word_t;
+  typedef uintmax_t word_t;
 
   // constants
-  static const unsigned int word_size = sizeof(word_t)*8-2;
-  static const unsigned int words = (bits+word_size-1)/word_size;
+  static const unsigned int word_size = sizeof(word_t)*8;
+  static const unsigned int words = (bits+word_size-1)/word_size; // round up
 
   // storage
   std::array<word_t, words> value;
@@ -74,33 +74,70 @@ private:
   // add with carry
   inline word_t awc(word_t a, word_t b, bool &carry) const
   {
-    word_t c = a + b + carry;
-    if(c & power<word_t>(2, word_size))
+    if(carry)
       {
-        carry = true;
-        c &= power<word_t>(2, word_size)-1;
+        if(a != word_t(-1))
+          a += 1;
+        else if(b != word_t(-1))
+          b += 1;
+        else
+          return word_t(-2);
+        carry = false;
       }
-    else carry = false;
-    return c;
+    if(word_t(-1) - a < b)
+      carry = true;
+    else
+      carry = false;
+    return a + b;
   }
 
-  // extend sign into carry bit (for comparisions)
-  inline word_t ext(word_t x) const
+  // multiply
+  inline void mul(word_t a, word_t b, word_t &h, word_t &l) const
   {
-    if(sign && x & power<word_t>(2, word_size-1))
-      x |= (power<word_t>(2, sizeof(word_t)*8 - word_size)-1) << word_size;
-    return x;
+    word_t al = a & (power<word_t>(2, word_size/2)-1);
+    word_t ah = (a >> word_size/2) & (power<word_t>(2, word_size/2)-1);
+    word_t bl = b & (power<word_t>(2, word_size/2)-1);
+    word_t bh = (b >> word_size/2) & (power<word_t>(2, word_size/2)-1);
+
+    word_t albl = al * bl;
+    word_t albh = al * bh;
+    word_t ahbl = ah * bl;
+    word_t ahbh = ah * bh;
+
+    bool carry = false;
+    word_t hcarry = 0;
+
+    l = albl;
+    l = awc(l, albh << word_size/2, carry);
+    hcarry += carry;
+    carry = false;
+    l = awc(l, ahbl << word_size/2, carry);
+    hcarry += carry;
+    carry = false;
+
+    h = awc(ahbh, hcarry, carry);
+    carry = false;
+    h = awc(h, albh >> word_size/2, carry);
+    carry = false;
+    h = awc(h, ahbl >> word_size/2, carry);
   }
 
-  // extend sign to fill the whole word size (execpt carry bit)
+  // extend sign to fill the whole word size
   inline void signext()
   {
+    // mask for extra bits in most significant word.
+    word_t mask = (power<word_t>(2, word_size-(bits % word_size))-1) << (bits % word_size);
     if(bits % word_size != 0)
       {
-        value[words-1] &= power<word_t>(2, bits % word_size)-1;
-        if(sign && at(bits-1))
-          value[words-1] |= (power<word_t>(2, word_size-(bits % word_size))-1)
-            << (bits % word_size);
+        if(sign)
+          {
+            if(negative())
+              value[words-1] |= mask;
+            else
+              value[words-1] &= ~mask;
+          }
+        else
+          value[words-1] &= ~mask;
       }
   }
 
@@ -116,31 +153,36 @@ public:
   template<typename type>
   fixed_t(type x, typename std::enable_if<std::is_floating_point<type>::value, fixed_t<sign, mbits, fbits>>::type *t = NULL)
   {
-    for(unsigned int c = 0; c < mbits; c++)
-      x *= 0.5;
-    assert(x <= 1 && ((sign && x >= -1) || (!sign && x >= 0)));
+    if(!sign)
+      assert(x >= 0);
 
     bool neg = sign && x < 0;
     if(neg)
         x = -x;
-    if(sign)
-      set(bits-1, false);
 
-    type d = 0.5;
-    for(unsigned int c = sign ? 1 : 0; c < bits; c++)
+    assert(x < std::pow<type>(2, mbits - (sign ? 1 : 0)));
+
+    for(unsigned int c = 0; c < words; c++)
+      value[c] = 0;
+
+    type d;
+    if((sign && mbits >= 2) || (!sign && mbits >= 1))
+      d = std::pow<type>(2, mbits - (sign ? 2 : 1));
+    else
+      d = 0.5;
+    for(unsigned int c = 0; c < bits - (sign ? 1 : 0); c++)
       {
         unsigned int n = bits-c-1;
-        if(d == 0) // due to finite precision of type
+        if(x == 0 || d == 0)
           break;
         else if(x >= d)
           {
             set(n, true);
             x -= d;
           }
-        else
-          set(n, false);
         d *= 0.5;
       }
+
     if(neg)
       *this = -*this;
     signext();
@@ -151,31 +193,26 @@ public:
           ((std::is_signed<type>::value && sign) || (std::is_unsigned<type>::value && !sign)),
           fixed_t<sign, mbits, fbits>>::type *t = NULL)
   {
-    if(sign)
-      assert(x <= power<type>(static_cast<type>(2), mbits-1)-1
-             && x >= -(power<type>(static_cast<type>(2), mbits-1)-1));
-    else
-      assert(x <= power<type>(static_cast<type>(2), mbits)-1 && x >= 0);
-
-    bool neg = x < 0;
+    bool neg = sign && x < 0;
     if(neg)
-      x = -x;
-    if(sign)
-      set(bits-1, false);
+        x = -x;
+
+    assert(x < power<type>(2, mbits - (sign ? 1 : 0)));
+
+    for(unsigned int c = 0; c < words; c++)
+      value[c] = 0;
 
     type i = power<type>(2, mbits - (sign ? 2 : 1));
-    for(unsigned int c = sign ? 1 : 0; c < mbits; c++)
+    for(unsigned int c = 0; c < bits - (sign ? 1 : 0); c++)
       {
         unsigned int n = bits-c-1;
-        if(i == 0)
+        if(x == 0 || i == 0)
           break;
         else if (x >= i)
           {
             set(n, true);
             x -= i;
           }
-        else
-          set(n, false);
         i /= 2;
       }
 
@@ -191,6 +228,7 @@ public:
   {
     for(unsigned int c = 0; c < words; c++)
       value[c] = x.value[c];
+    signext();
     return *this;
   }
 
@@ -199,7 +237,7 @@ public:
   inline bool at(const unsigned int bit) const
   {
     assert(bit < bits);
-    return value[bit/word_size] & power<word_t>(2, bit % word_size);
+    return value[bit/word_size] & (static_cast<word_t>(1) << (bit % word_size));
   }
 
   inline bool operator[](const unsigned int bit) const
@@ -210,17 +248,19 @@ public:
   inline void set(const unsigned int bit, bool val)
   {
     assert(bit < bits);
+    word_t pattern = static_cast<word_t>(1) << (bit % word_size);
     if(val)
-      value[bit/word_size] |= power<word_t>(2, bit % word_size);
+      value[bit/word_size] |= pattern;
     else
-      value[bit/word_size] &= ~power<word_t>(2, bit % word_size);
+      value[bit/word_size] &= ~pattern;
+    if(bit == bits-1)
+      signext();
   }
 
   // conversion operators
-  
+
   explicit operator long double() const
   {
-    long double result = 0;
     bool neg = negative();
     fixed_t<sign, mbits, fbits> tmp;
     if(neg)
@@ -228,26 +268,25 @@ public:
     else
       tmp = *this;
 
-    long double d = 0.5;
-    for(unsigned int c = sign ? 1 : 0; c < bits; c++)
+    long double result = 0;
+    long double d;
+    if((sign && mbits >= 2) || (!sign && mbits >= 1))
+      d = std::pow<long double>(2, mbits - (sign ? 2 : 1));
+    else
+      d = 0.5;
+    for(unsigned int c = 0; c < bits - (sign ? 1 : 0); c++)
       {
         unsigned int n = bits-c-1;
         if(d == 0) // due to finite precision of type
           break;
         else if(tmp.at(n))
           result += d;
-        d *= 0.5;
+        d *= 0.5l;
       }
 
     if(neg)
-      {
-        if(result == 0)
-          result = 1;
-        result = -result;
-      }
+      result = -result;
 
-    for(unsigned int c = sign ? 1 : 0; c < mbits; c++)
-      result *= 2;
     return result;
   }
 
@@ -267,16 +306,16 @@ public:
   inline fixed_t<sign, mbits, fbits> &operator<<=(const fixed_t<true, mbits2, 0> amount)
   {
     return operator<<=(static_cast<int>(static_cast<long double>(amount)));
-  } 
+  }
 
   fixed_t<sign, mbits, fbits> &operator<<=(const int amount)
   {
     if(amount < 0)
       return operator>>=(-amount);
-    
+
     unsigned int amount_words = amount / word_size;
     unsigned int amount_bits = amount % word_size;
-    
+
     for(unsigned int c = 0; c < words; c++)
       {
         unsigned int d = words-c-1;
@@ -305,12 +344,12 @@ public:
   {
     if(amount < 0)
       return operator>>(-amount);
-    
+
     fixed_t<sign, mbits, fbits> tmp;
 
     unsigned int amount_words = amount / word_size;
     unsigned int amount_bits = amount % word_size;
-    
+
     for(unsigned int c = 0; c < words; c++)
       {
         unsigned int d = words-c-1;
@@ -333,7 +372,7 @@ public:
   inline fixed_t<sign, mbits, fbits> &operator>>=(const fixed_t<true, mbits2, 0> amount)
   {
     return operator>>=(static_cast<int>(static_cast<long double>(amount)+.5l));
-  } 
+  }
 
   fixed_t<sign, mbits, fbits> &operator>>=(const int amount)
   {
@@ -341,10 +380,10 @@ public:
       return operator<<=(-amount);
 
     bool neg = negative();
-    
+
     unsigned int amount_words = amount / word_size;
     unsigned int amount_bits = amount % word_size;
-    
+
     for(unsigned int c = 0; c < words; c++)
       {
         word_t fill = neg ? power<word_t>(2, word_size)-1 : 0;
@@ -373,10 +412,10 @@ public:
     fixed_t<sign, mbits, fbits> tmp;
 
     bool neg = negative();
-    
+
     unsigned int amount_words = amount / word_size;
     unsigned int amount_bits = amount % word_size;
-    
+
     for(unsigned int c = 0; c < words; c++)
       {
         word_t fill = neg ? power<word_t>(2, word_size)-1 : 0;
@@ -397,6 +436,7 @@ public:
   {
     for(unsigned int c = 0; c < words; c++)
       value[c] |= x.value[c];
+    signext();
     return *this;
   }
 
@@ -406,6 +446,7 @@ public:
     fixed_t<sign, mbits, fbits> tmp;
     for(unsigned int c = 0; c < words; c++)
       tmp.value[c] = value[c] | x.value[c];
+    tmp.signext();
     return tmp;
   }
 
@@ -414,6 +455,7 @@ public:
   {
     for(unsigned int c = 0; c < words; c++)
       value[c] &= x.value[c];
+    signext();
     return *this;
   }
 
@@ -423,6 +465,7 @@ public:
     fixed_t<sign, mbits, fbits> tmp;
     for(unsigned int c = 0; c < words; c++)
       tmp.value[c] = value[c] & x.value[c];
+    tmp.signext();
     return tmp;
   }
 
@@ -431,6 +474,7 @@ public:
   {
     for(unsigned int c = 0; c < words; c++)
       value[c] ^= x.value[c];
+    signext();
     return *this;
   }
 
@@ -440,6 +484,7 @@ public:
     fixed_t<sign, mbits, fbits> tmp;
     for(unsigned int c = 0; c < words; c++)
       tmp.value[c] = value[c] ^ x.value[c];
+    tmp.signext();
     return tmp;
   }
 
@@ -448,14 +493,18 @@ public:
     fixed_t<sign, mbits, fbits> tmp;
     for(unsigned int c = 0; c < words; c++)
       tmp.value[c] = ~value[c] & (power<word_t>(2, word_size)-1);
+    tmp.signext();
     return tmp;
   }
 
   inline fixed_t<sign, mbits, fbits> operator!() const
   {
-    return ~*this; // TODO: proper implementation
+    if(zero())
+      return 1;
+    else
+      return 0;
   }
-  
+
   // comparison operators
 
   bool operator==(const fixed_t<sign, mbits, fbits> &x) const
@@ -472,10 +521,14 @@ public:
 
   bool operator>(const fixed_t<sign, mbits, fbits> &x) const
   {
+    if(negative() && !x.negative())
+      return false;
+    else if(!negative() && x.negative())
+      return true;
     for(unsigned int c = 0; c < words; c++)
       {
-        word_t a = ext(value[words-c-1]);
-        word_t b = ext(x.value[words-c-1]);
+        word_t a = value[words-c-1];
+        word_t b = x.value[words-c-1];
         if(a > b)
           return true;
         else if(a < b)
@@ -559,7 +612,7 @@ public:
     bool carry = false;
     return add(x, carry);
   }
-  
+
   template <bool sign2>
   inline fixed_t<sign, mbits, fbits> operator+(const fixed_t<sign2, mbits, fbits> &x) const
   {
@@ -607,56 +660,37 @@ public:
     else if(negative() && !x.negative())
       return -(-*this * x);
 
-    const unsigned int extra_bits =
-      (words+fixed_t<sign, mbits2, fbits2>::words)*word_size
-      - (mbits+mbits2+fbits+fbits2);
-    fixed_t<sign, mbits+mbits2+extra_bits, fbits+fbits2> tmp;
-
-    bool carry = false;
-    word_t hcarry = 0;
-    for(unsigned int c = 0; c < tmp.words-1; c++)
+    std::array<word_t, 2*words> result;
+    std::array<word_t, 2*words> carrys;
+    for(unsigned int c = 0; c < 2*words; c++)
       {
-        word_t lsum = 0;
-        word_t hsum = hcarry;
-        for(unsigned int n = c > x.words-1 ? c-x.words+1 : 0;
-            n <= c && n < words; n++)
-          {
-            unsigned int m = c - n;
-            word_t a = value.at(n);
-            word_t b = x.value.at(m);
-
-            // split words
-            word_t ah = a >> word_size/2 & (power<word_t>(2, word_size/2)-1);
-            word_t al = a & (power<word_t>(2, word_size/2)-1);
-            word_t bh = b >> word_size/2 & (power<word_t>(2, word_size/2)-1);
-            word_t bl = b & (power<word_t>(2, word_size/2)-1);
-
-            // multiply
-            word_t ahbh = ah * bh;
-            word_t albh = al * bh;
-            word_t ahbl = ah * bl;
-            word_t albl = al * bl;
-
-            // add
-            word_t l = albl;
-            word_t h = ahbh;
-            l = (l + (albh << word_size/2)) & (power<word_t>(2, word_size)-1);
-            h = (h + (albh >> word_size/2)) & (power<word_t>(2, word_size)-1);
-            l = (l + (ahbl << word_size/2)) & (power<word_t>(2, word_size)-1);
-            h = (h + (ahbl >> word_size/2)) & (power<word_t>(2, word_size)-1);
-
-            lsum = awc(lsum, l, carry);
-            hsum = awc(hsum, h, carry);
-            if(carry) hcarry++;
-            carry = false;
-          }
-        tmp.value.at(c) = awc(tmp.value.at(c), lsum, carry);
-        tmp.value.at(c+1) = awc(tmp.value.at(c+1), hsum, carry);
+        result[c] = 0;
+        carrys[c] = 0;
       }
 
-    tmp <<= sign ? 1 : 0;
+    for(unsigned int n = 0; n < words; n++)
+      for(unsigned int m = 0; m < x.words; m++)
+        {
+          word_t a = value.at(n);
+          word_t b = x.value.at(m);
+          word_t h;
+          word_t l;
+          mul(a, b, h, l);
+          bool carry = false;
+          result[n+m] = awc(result[n+m], l, carry);
+          carrys[n+m+1] += carry;
+          carry = false;
+          result[n+m+1] = awc(result[n+m+1], h, carry);
+          carrys[n+m+2] += carry;
+        }
 
-    auto tmp2 = tmp.template resize<mbits+mbits2, fbits+fbits2>();
+    fixed_t<sign, mbits+mbits2, fbits+fbits2> tmp2;
+    bool carry = false;
+    for(unsigned int c = 0; c < tmp2.words; c++)
+      tmp2.value[c] = awc(result[c], carrys[c], carry);
+
+    if(sign)
+      tmp2 >>= 1;
 
 #ifdef SYMMETRIC
     if(tmp2.asymmetric())
@@ -672,6 +706,13 @@ public:
     return fixed_t<sign, mbits+mbits2, fbits+fbits2>(); // TODO: implement
   }
 
+  template <unsigned int mbits2, unsigned int fbits2>
+  fixed_t<sign, mbits, fbits> &operator*=(const fixed_t<sign, mbits2, fbits2> &x)
+  {
+    *this = (*this * x).resize<mbits, fbits>();
+    return *this;
+  }
+
   // misc
 
   inline const unsigned int size() const
@@ -682,6 +723,18 @@ public:
   inline bool negative() const
   {
     return at(bits-1) && sign;
+  }
+
+  inline bool zero() const
+  {
+    bool itis = true;
+    for(auto &word : value)
+      if(word != 0)
+        {
+          itis = false;
+          break;
+        }
+    return itis;
   }
 
   inline bool asymmetric() const
@@ -709,9 +762,6 @@ public:
       {
         for(unsigned int c = 0; c < words; c++)
           tmp.value[c] = value[c];
-        if(sign && at(bits-1))
-          for(unsigned int c = words; c < tmp.words; c++)
-            tmp.value[c] = power<word_t>(2, word_size)-1;
         tmp <<= (fbits2-fbits);
       }
     else
@@ -720,6 +770,7 @@ public:
         for(unsigned int c = 0; c < tmp.words; c++)
           tmp.value[c] = tmp2.value[c];
       }
+    tmp.signext();
 
 #ifdef SYMMETRIC
     if(fbits2 < fbits && tmp.asymmetric())
@@ -747,13 +798,13 @@ public:
 template <bool sign, unsigned int mbits, unsigned int fbits>
 fixed_t<true, mbits, fbits> sin(fixed_t<sign, mbits, fbits> p)
 {
-  return fixed_t<true, mbits, fbits>(sin(2.*pi*static_cast<long double>(p)));
-}  
+  return fixed_t<true, mbits, fbits>(0.5*sin(2.*pi*static_cast<long double>(p)));
+}
 
 template <bool sign, unsigned int mbits, unsigned int fbits>
 fixed_t<true, mbits, fbits> cos(fixed_t<sign, mbits, fbits> p)
 {
-  return fixed_t<true, mbits, fbits>(cos(2.*pi*static_cast<long double>(p)));
+  return fixed_t<true, mbits, fbits>(0.5*cos(2.*pi*static_cast<long double>(p)));
 }
 
 template <bool sign, unsigned int mbits, unsigned int fbits>
