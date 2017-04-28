@@ -49,6 +49,8 @@ namespace hdl
   class simulator;
   class part;
 
+  void cleanup();
+
   namespace detail
   {
     // misc helpers

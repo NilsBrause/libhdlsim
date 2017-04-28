@@ -52,6 +52,12 @@ void hdl::detail::named_obj::setname(std::string name)
   myname = name;
 }
 
+void hdl::cleanup()
+{
+  hdl::detail::wires.clear();
+  hdl::detail::parts.clear();
+}
+
 std::vector<std::shared_ptr<hdl::detail::base> > hdl::detail::wires;
 std::vector<std::shared_ptr<hdl::detail::base> > hdl::detail::parts;
 thread_local hdl::detail::base* hdl::detail::base::cur_part;
