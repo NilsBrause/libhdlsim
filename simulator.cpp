@@ -38,7 +38,6 @@ void simulator::run(uint64_t duration)
   std::vector<std::shared_ptr<hdl::detail::base> > wires2up;
   std::vector<std::shared_ptr<hdl::detail::base> > procs2up;
   std::shared_ptr<hdl::detail::base> testbench = tb.p;
-  static bool first = true;
 
   for(; duration > 0; duration--, cur_time++)
     {

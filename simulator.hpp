@@ -37,6 +37,7 @@ namespace hdl
   private:
     part tb;
     uint64_t cur_time;
+    bool first = true;
 
   public:
     simulator(part testbench);
