@@ -42,8 +42,7 @@ namespace hdl
       virtual void update(uint64_t time);
       
     public:
-      part_int(std::list<std::list<std::shared_ptr<detail::base> > > inputs,
-               std::list<std::list<std::shared_ptr<detail::base> > > outputs,
+      part_int(std::list<std::list<std::shared_ptr<detail::base> > > outputs,
                std::function<void(uint64_t)> logic);
     };
   }

@@ -54,7 +54,7 @@ namespace hdl
     {
       if(candidates.size() > 1)
         {
-          std::cerr << "ERROR: resolve() unimplemented for type "
+          std::cerr << "ERROR: While updating " << w->getname() << ": resolve() unimplemented for type "
                     << typeid(T).name() << ". Drivers: " << std::endl;
           for(auto d : candidates)
             std::cout << "  " << (!d.first ? "NULL" : d.first->getname()) << std::endl;

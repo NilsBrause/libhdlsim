@@ -709,13 +709,13 @@ public:
   template <unsigned int mbits2, unsigned int fbits2>
   fixed_t<sign, mbits, fbits> &operator*=(const fixed_t<sign, mbits2, fbits2> &x)
   {
-    *this = (*this * x).resize<mbits, fbits>();
+    *this = (*this * x).template resize<mbits, fbits>();
     return *this;
   }
 
   // misc
 
-  inline const unsigned int size() const
+  inline unsigned int size() const
   {
     return bits;
   }
@@ -781,7 +781,7 @@ public:
   }
 
   template <unsigned int mbits2, unsigned int fbits2>
-  inline void resize(fixed_t<sign, mbits2, fbits2> &target)
+  inline void resize(fixed_t<sign, mbits2, fbits2> &target) const
   {
     target = resize<mbits2, fbits2>();
   }

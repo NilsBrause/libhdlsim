@@ -29,8 +29,7 @@
 
 using namespace hdl;
 
-detail::part_int::part_int(std::list<std::list<std::shared_ptr<detail::base> > > inputs,
-                           std::list<std::list<std::shared_ptr<detail::base> > > outputs,
+detail::part_int::part_int(std::list<std::list<std::shared_ptr<detail::base> > > outputs,
                            std::function<void(uint64_t)> logic)
   : logic(logic)
 {
@@ -51,7 +50,7 @@ part::part(std::list<std::list<std::shared_ptr<detail::base> > > inputs,
            std::list<std::list<std::shared_ptr<detail::base> > > outputs,
            std::function<void(uint64_t)> logic,
            std::string name)
-  : p(new detail::part_int(inputs, outputs, logic))
+  : p(new detail::part_int(outputs, logic))
 {
   p->setname(name);
   for(auto &l : inputs)
