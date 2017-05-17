@@ -59,6 +59,8 @@ namespace hdl
          std::list<std::list<std::shared_ptr<detail::base> > > outputs,
          std::function<void(uint64_t)> logic,
          std::string name = "unknown");
+
+    part() = default;
   };
 }
 
