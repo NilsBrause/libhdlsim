@@ -224,6 +224,11 @@ namespace hdl
       w->set(w2.get());
     }
 
+    void operator=(const wire<T> &w2) const
+    {
+      w->set(w2.get());
+    }
+
     // conversion operators
 
     operator T() const
